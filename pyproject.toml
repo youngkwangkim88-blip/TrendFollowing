@@ -6,12 +6,15 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
-    "numpy>=2.2.6",
+    "numpy<2.0",
     "pandas>=2.3.3",
     "pyarrow>=23.0.0",
     "pydantic-settings>=2.12.0",
+    "pykrx==1.2.3",
     "python-dotenv>=1.2.1",
+    "setuptools<82",
     "tenacity>=9.1.4",
+    "tqdm>=4.67.3",
 ]
 
 [dependency-groups]

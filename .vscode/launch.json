@@ -1,7 +1,58 @@
 ﻿{
-  // VS Code Python Debug 구성 예시 (JSONC: 주석 허용)
+  // VS Code Python Debug 구성 (JSONC: 주석 허용)
   "version": "0.2.0",
   "configurations": [
+    {
+      "name": "Python: 현재 파일 실행",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    },
+    {
+      "name": "Download: KOSPI MCAP100 (quick test)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/download_krx_ohlcv_panel.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "args": [
+        "--universe", "kospi_mcap100",
+        "--bars", "5000",
+        "--max-tickers", "5",
+        "--sleep", "0.1",
+        "--out", "${workspaceFolder}/data/kospi_mcap100_adj_5000_test.csv"
+      ]
+      // 가능한 옵션 예시:
+      // "args": [
+      //   "--universe", "krx100",              // krx100 | kospi_mcap100
+      //   "--bars", "5000",                    // 종목별 보관할 일봉 개수
+      //   "--end", "20260210",                 // YYYYMMDD, 미지정 시 최근 거래일 자동탐색
+      //   "--max-tickers", "20",               // 빠른 테스트용 제한
+      //   "--sleep", "0.3",                    // 요청 간 대기(초)
+      //   "--out", "${workspaceFolder}/data/out.csv"
+      // ]
+    },
+    {
+      "name": "Download: KRX100 (full)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/download_krx_ohlcv_panel.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "args": [
+        "--universe", "krx100",
+        "--bars", "5000",
+        "--sleep", "0.3"
+      ]
+    },
     {
       "name": "Backtest: sample_005930 (기본)",
       "type": "debugpy",
@@ -16,17 +67,6 @@
         "--entry-rule", "A_20_PL",
         "--outdir", "${workspaceFolder}/outputs"
       ]
-      // 가능한 옵션 예시:
-      // "args": [
-      //   "--csv", "${workspaceFolder}/data/sample_005930.csv",
-      //   "--symbol", "005930",
-      //   "--entry-rule", "A_20_PL",   // choices: EntryRuleType 값들
-      //   "--initial-capital", "700000000",
-      //   "--start", "2018-01-01",     // YYYY-MM-DD
-      //   "--end", "2020-12-31",       // YYYY-MM-DD
-      //   "--plot",                      // 플래그 옵션 (값 없이 사용)
-      //   "--outdir", "${workspaceFolder}/outputs"
-      // ]
     },
     {
       "name": "Backtest: sample_005930 + plot",
