@@ -1,0 +1,63 @@
+﻿{
+  // VS Code Python Debug 구성 예시 (JSONC: 주석 허용)
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backtest: sample_005930 (기본)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/toy_005930_backtest.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "args": [
+        "--csv", "${workspaceFolder}/data/sample_005930.csv",
+        "--entry-rule", "A_20_PL",
+        "--outdir", "${workspaceFolder}/outputs"
+      ]
+      // 가능한 옵션 예시:
+      // "args": [
+      //   "--csv", "${workspaceFolder}/data/sample_005930.csv",
+      //   "--symbol", "005930",
+      //   "--entry-rule", "A_20_PL",   // choices: EntryRuleType 값들
+      //   "--initial-capital", "700000000",
+      //   "--start", "2018-01-01",     // YYYY-MM-DD
+      //   "--end", "2020-12-31",       // YYYY-MM-DD
+      //   "--plot",                      // 플래그 옵션 (값 없이 사용)
+      //   "--outdir", "${workspaceFolder}/outputs"
+      // ]
+    },
+    {
+      "name": "Backtest: sample_005930 + plot",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/toy_005930_backtest.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "args": [
+        "--csv", "${workspaceFolder}/data/sample_005930.csv",
+        "--entry-rule", "A_20_PL",
+        "--plot",
+        "--outdir", "${workspaceFolder}/outputs"
+      ]
+    },
+    {
+      "name": "Backtest: full dataset (12y)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/toy_005930_backtest.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true,
+      "args": [
+        "--csv", "${workspaceFolder}/data/kospi_top100_ohlc_12y.csv",
+        "--entry-rule", "A_20_PL",
+        "--outdir", "${workspaceFolder}/outputs"
+      ]
+    }
+  ]
+}

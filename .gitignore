@@ -1,0 +1,124 @@
+############################################
+# Project-specific
+############################################
+
+# Backtest / research outputs (generated)
+outputs/*
+!outputs/.gitkeep
+
+# Local data/cache (generated)
+data_local/
+cache/
+.tmp/
+tmp/
+
+# Logs
+logs/
+*.log
+
+############################################
+# Secrets / environment
+############################################
+
+# Local env files (DO NOT COMMIT)
+.env
+.env.*
+!.env.example
+
+# Credentials / keys (just in case)
+*.pem
+*.key
+*.p12
+*.pfx
+
+############################################
+# Python bytecode / caches
+############################################
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+*.pyd
+*.dll
+
+############################################
+# Virtual environments
+############################################
+
+.venv/
+venv/
+ENV/
+env/
+
+############################################
+# Packaging / build artifacts
+############################################
+
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+wheelhouse/
+
+############################################
+# Test / coverage / typecheck / lint caches
+############################################
+
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+.pytype/
+.pyre/
+
+# Property-based testing
+.hypothesis/
+
+############################################
+# Jupyter / notebooks
+############################################
+
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+############################################
+# IDE / Editor
+############################################
+
+# VS Code: keep team-useful configs, ignore the rest
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# JetBrains / PyCharm
+.idea/
+*.iml
+
+############################################
+# OS / Misc
+############################################
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
