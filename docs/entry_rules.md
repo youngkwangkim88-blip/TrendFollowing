@@ -39,6 +39,7 @@
 - 후보군:
   - **Type A: Turtle(돈치안 브레이크아웃) 계열**
   - **Type B: 회귀 기반(정규화 기울기 + R²) 계열**
+  - **Strategy C: 시계열 모멘텀 + 이동평균선 대순환(6단계) + 시장(지수) 필터**
 
 ---
 
@@ -202,3 +203,94 @@ entry:
 - 진입 신호는 “후보 신호”이고, 실제 주문 생성은 섹션 1.3의 **게이트를 모두 통과**해야 한다.
 - 진입 후 청산/피라미딩은 `capital_management_rules_v2.md`의 규칙을 따른다.
 - Type A.2(PL 필터)의 “직전 거래”는 **종목 단위**로 관리하는 것을 기본으로 한다.
+
+
+---
+
+## 6) Strategy C — 시계열 모멘텀 + 이동평균선 대순환(6단계) + 시장(지수) 필터
+### 6.1 목적/가정
+- 대상: **삼성전자처럼 사이클(경기 민감) 성격이 강한 종목**에서 “큰 상승 국면”만 취하는 것을 목표로 한다.
+- 지향점(원리 시험):
+  - 승률(Win Rate) ≈ 35%
+  - 손익비(Avg Win / Avg Loss) ≈ 5
+
+> 주: 손절/TS/피라미딩/비용 모델은 기존 문서(`capital_management_rules_v2.md`) 규칙을 그대로 따른다.
+
+### 6.2 모멘텀 정의(기본: 63거래일)
+- `MOM_L(T) = Close_T / Close_{T-L} - 1`
+- 기본 `L=63` (약 3개월)
+- 코드 컬럼명: `mom_{L}` (예: `mom_63`)
+
+### 6.3 이동평균선 대순환(6단계) 정의 (EMA 5/20/40)
+세 개의 EMA를 계산한다.
+- 단기: `EMA_5`
+- 중기: `EMA_20`
+- 장기: `EMA_40`
+
+**단계(위→아래 순서)**
+1) `EMA_5 > EMA_20 > EMA_40`  
+2) `EMA_20 > EMA_5 > EMA_40`  
+3) `EMA_20 > EMA_40 > EMA_5`  
+4) `EMA_40 > EMA_20 > EMA_5`  
+5) `EMA_40 > EMA_5 > EMA_20`  
+6) `EMA_5 > EMA_40 > EMA_20`
+
+- 코드 컬럼명: `cycle_phase_{s}_{m}_{l}` (예: `cycle_phase_5_20_40`)
+- 동점(동일값) 등으로 순서가 불명확한 경우 phase는 NaN으로 처리(=필터 불통과).
+
+### 6.4 진입 필터(롱만)
+**롱 허용 구간:** 6단계 → 1단계 → 2단계  
+즉, 롱은 아래 두 조건이 모두 성립할 때만 허용한다.
+
+- (종목 필터) `stock_phase ∈ {6,1,2}`
+- (시장 필터) `market_phase ∈ {6,1,2}`  
+  - 시장 phase는 **KOSPI200 선물(지수)** CSV로부터 산출한다.
+  - 코드 컬럼명: `mkt_cycle_phase_5_20_40` (prefix 기본값 `mkt`)
+
+### 6.5 Strategy C 진입 규칙(레짐 엔트리)
+종가 기반 판단(T), 익일 시가 진입(T+1 09:00):
+
+- `MOM_63(T) > +5%`
+- `stock_phase(T) ∈ {6,1,2}`
+- `market_phase(T) ∈ {6,1,2}`
+
+그리고 **조건이 True로 “처음 전환되는 날”에만 진입**한다.
+- `cond(T)=True` AND `cond(T-1)=False` → `T+1` 시가에 1 unit 매수
+
+### 6.6 Strategy C 레짐 청산(옵션, 기본 ON)
+포지션 보유 중 아래 중 하나라도 성립하면, 다음날 시가에 전량 청산한다.
+- `MOM_63(T) ≤ 0%` (exit threshold)
+- `stock_phase(T) ∉ {6,1,2}`
+- `market_phase(T) ∉ {6,1,2}`
+
+- 코드 exit_reason: `REGIME_EXIT_C_TSMOM_CYCLE`
+
+### 6.7 실행 방법 (Toy 005930)
+```bash
+python scripts/toy_005930_backtest.py \
+  --csv data/krx100_adj_5000.csv \
+  --entry-rule C_TSMOM_CYCLE \
+  --market-csv data/kospi200_futures.csv \
+  --c-mom-window 63 \
+  --c-enter-thr 0.05 \
+  --c-exit-thr 0.0 \
+  --outdir outputs
+```
+
+- `--market-csv`를 주지 않고 실행하려면 `--c-no-market-filter`를 명시해야 한다(시장 필터 비활성).
+
+
+---
+
+## 부록) Type B 변형(BA/BB)
+
+005930(삼성전자)와 같이 회귀 기반 지표가 **전환점에서 R²가 낮아지는** 종목에서 `B_SLOPE20`이 신호를 거의 만들지 않는 경우가 있어, 아래 변형을 추가했다.
+
+- `BA_REGIME20` (BA 전략)
+  - 0선 돌파가 아니라 **regime 진입** 형태
+  - `norm_slope_20 > 0` & `r2_20 > 0.6` & `close >= MA60` 조건이 **False→True**로 전환될 때 LONG 진입
+  - 숏은 대칭
+
+- `BB_CROSS20_R2PREV` (BB 전략)
+  - 0선 돌파는 유지하되, 필터를 `r2_20(t-1)`로 평가
+  - 전환 당일의 R² 저하 문제를 완화

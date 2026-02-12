@@ -1,103 +1,413 @@
 ﻿{
-  // VS Code Python Debug 구성 (JSONC: 주석 허용)
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Python: 현재 파일 실행",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.env",
-      "justMyCode": true
-    },
-    {
-      "name": "Download: KOSPI MCAP100 (quick test)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/scripts/download_krx_ohlcv_panel.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.env",
-      "justMyCode": true,
-      "args": [
-        "--universe", "kospi_mcap100",
-        "--bars", "5000",
-        "--max-tickers", "5",
-        "--sleep", "0.1",
-        "--out", "${workspaceFolder}/data/kospi_mcap100_adj_5000_test.csv"
-      ]
-      // 가능한 옵션 예시:
-      // "args": [
-      //   "--universe", "krx100",              // krx100 | kospi_mcap100
-      //   "--bars", "5000",                    // 종목별 보관할 일봉 개수
-      //   "--end", "20260210",                 // YYYYMMDD, 미지정 시 최근 거래일 자동탐색
-      //   "--max-tickers", "20",               // 빠른 테스트용 제한
-      //   "--sleep", "0.3",                    // 요청 간 대기(초)
-      //   "--out", "${workspaceFolder}/data/out.csv"
-      // ]
-    },
-    {
-      "name": "Download: KRX100 (full)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/scripts/download_krx_ohlcv_panel.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.env",
-      "justMyCode": true,
-      "args": [
-        "--universe", "krx100",
-        "--bars", "5000",
-        "--sleep", "0.3"
-      ]
-    },
-    {
-      "name": "Backtest: sample_005930 (기본)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/scripts/toy_005930_backtest.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.env",
-      "justMyCode": true,
-      "args": [
-        "--csv", "${workspaceFolder}/data/sample_005930.csv",
-        "--entry-rule", "A_20_PL",
-        "--outdir", "${workspaceFolder}/outputs"
-      ]
-    },
-    {
-      "name": "Backtest: sample_005930 + plot",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/scripts/toy_005930_backtest.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.env",
-      "justMyCode": true,
-      "args": [
-        "--csv", "${workspaceFolder}/data/sample_005930.csv",
-        "--entry-rule", "A_20_PL",
-        "--plot",
-        "--outdir", "${workspaceFolder}/outputs"
-      ]
-    },
-    {
-      "name": "Backtest: full dataset (12y)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/scripts/toy_005930_backtest.py",
-      "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
-      "envFile": "${workspaceFolder}/.env",
-      "justMyCode": true,
-      "args": [
-        "--csv", "${workspaceFolder}/data/kospi_top100_ohlc_12y.csv",
-        "--entry-rule", "A_20_PL",
-        "--outdir", "${workspaceFolder}/outputs"
-      ]
-    }
-  ]
+    "version":  "0.2.0",
+    "configurations":  [
+                           {
+                               "name":  "Python: ?꾩옱 ?뚯씪 ?ㅽ뻾",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${file}",
+                               "console":  "integratedTerminal",
+                               "cwd":  "${workspaceFolder}",
+                               "envFile":  "${workspaceFolder}/.env",
+                               "justMyCode":  true,
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Strategy: A_TURTLE (Toy 005930)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_backtest.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--entry-rule",
+                                            "A_TURTLE",
+                                            "--initial-capital",
+                                            "700000000",
+                                            "--one-trading-risk",
+                                            "0.01",
+                                            "--max-units",
+                                            "4",
+                                            "--max-units-total",
+                                            "10",
+                                            "--sell-cost-rate",
+                                            "0.003",
+                                            "--short-notional-limit",
+                                            "570000000",
+                                            "--annual-short-interest-rate",
+                                            "0.045",
+                                            "--short-max-hold-days",
+                                            "90",
+                                            "--stop-atr-mult",
+                                            "2.0",
+                                            "--ts-activate-gain",
+                                            "0.20",
+                                            "--ts-floor-gain",
+                                            "0.10",
+                                            "--ts-trail-frac",
+                                            "0.10",
+                                            "--pyramid-trigger",
+                                            "0.15",
+                                            "--plot",
+                                            "--outdir",
+                                            "${workspaceFolder}/outputs"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Strategy: B_SLOPE20 (Toy 005930)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_backtest.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--entry-rule",
+                                            "B_SLOPE20",
+                                            "--initial-capital",
+                                            "700000000",
+                                            "--one-trading-risk",
+                                            "0.01",
+                                            "--max-units",
+                                            "4",
+                                            "--max-units-total",
+                                            "10",
+                                            "--sell-cost-rate",
+                                            "0.003",
+                                            "--short-notional-limit",
+                                            "570000000",
+                                            "--annual-short-interest-rate",
+                                            "0.045",
+                                            "--short-max-hold-days",
+                                            "90",
+                                            "--stop-atr-mult",
+                                            "2.0",
+                                            "--ts-activate-gain",
+                                            "0.20",
+                                            "--ts-floor-gain",
+                                            "0.10",
+                                            "--ts-trail-frac",
+                                            "0.10",
+                                            "--pyramid-trigger",
+                                            "0.15",
+                                            "--plot",
+                                            "--outdir",
+                                            "${workspaceFolder}/outputs"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Strategy: BA_REGIME20 (Toy 005930)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_backtest.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--entry-rule",
+                                            "BA_REGIME20",
+                                            "--initial-capital",
+                                            "700000000",
+                                            "--one-trading-risk",
+                                            "0.01",
+                                            "--max-units",
+                                            "4",
+                                            "--max-units-total",
+                                            "10",
+                                            "--sell-cost-rate",
+                                            "0.003",
+                                            "--short-notional-limit",
+                                            "570000000",
+                                            "--annual-short-interest-rate",
+                                            "0.045",
+                                            "--short-max-hold-days",
+                                            "90",
+                                            "--stop-atr-mult",
+                                            "2.0",
+                                            "--ts-activate-gain",
+                                            "0.20",
+                                            "--ts-floor-gain",
+                                            "0.10",
+                                            "--ts-trail-frac",
+                                            "0.10",
+                                            "--pyramid-trigger",
+                                            "0.15",
+                                            "--plot",
+                                            "--outdir",
+                                            "${workspaceFolder}/outputs"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Strategy: BB_CROSS20_R2PREV (Toy 005930)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_backtest.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--entry-rule",
+                                            "BB_CROSS20_R2PREV",
+                                            "--initial-capital",
+                                            "700000000",
+                                            "--one-trading-risk",
+                                            "0.01",
+                                            "--max-units",
+                                            "4",
+                                            "--max-units-total",
+                                            "10",
+                                            "--sell-cost-rate",
+                                            "0.003",
+                                            "--short-notional-limit",
+                                            "570000000",
+                                            "--annual-short-interest-rate",
+                                            "0.045",
+                                            "--short-max-hold-days",
+                                            "90",
+                                            "--stop-atr-mult",
+                                            "2.0",
+                                            "--ts-activate-gain",
+                                            "0.20",
+                                            "--ts-floor-gain",
+                                            "0.10",
+                                            "--ts-trail-frac",
+                                            "0.10",
+                                            "--pyramid-trigger",
+                                            "0.15",
+                                            "--plot",
+                                            "--outdir",
+                                            "${workspaceFolder}/outputs"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Strategy: C_TSMOM_CYCLE (Toy 005930)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_backtest.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--entry-rule",
+                                            "C_TSMOM_CYCLE",
+                                            "--market-csv",
+                                            "data/kospi200_20260212.csv",
+                                            "--initial-capital",
+                                            "700000000",
+                                            "--one-trading-risk",
+                                            "0.01",
+                                            "--max-units",
+                                            "4",
+                                            "--max-units-total",
+                                            "10",
+                                            "--sell-cost-rate",
+                                            "0.003",
+                                            "--short-notional-limit",
+                                            "570000000",
+                                            "--annual-short-interest-rate",
+                                            "0.045",
+                                            "--short-max-hold-days",
+                                            "90",
+                                            "--stop-atr-mult",
+                                            "2.0",
+                                            "--ts-activate-gain",
+                                            "0.20",
+                                            "--ts-floor-gain",
+                                            "0.10",
+                                            "--ts-trail-frac",
+                                            "0.10",
+                                            "--pyramid-trigger",
+                                            "0.15",
+                                            "--plot",
+                                            "--outdir",
+                                            "${workspaceFolder}/outputs"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Toy: C_TSMOM_CYCLE (No Market, Long-Only, Plot 4Y)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_backtest.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--entry-rule",
+                                            "C_TSMOM_CYCLE",
+                                            "--c-no-market-filter",
+                                            "--disable-short",
+                                            "--plot",
+                                            "--plot-years",
+                                            "4",
+                                            "--outdir",
+                                            "outputs_005930"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Toy: Combo Compare (C + TS.A/B/C + PRMD.A/B)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_combo_compare.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--entry-rules",
+                                            "C_TSMOM_CYCLE",
+                                            "--ts-types",
+                                            "TS.A,TS.B,TS.C",
+                                            "--pyramiding-types",
+                                            "PRMD.A,PRMD.B",
+                                            "--disable-short",
+                                            "--c-no-market-filter",
+                                            "--outdir",
+                                            "outputs_combo"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Backtest: krx100_adj_5000 + plot",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_backtest.py",
+                               "console":  "integratedTerminal",
+                               "cwd":  "${workspaceFolder}",
+                               "envFile":  "${workspaceFolder}/.env",
+                               "justMyCode":  true,
+                               "args":  [
+                                            "--csv",
+                                            "${workspaceFolder}/data/krx100_adj_5000.csv",
+                                            "--entry-rule",
+                                            "A_20_PL",
+                                            "--plot",
+                                            "--outdir",
+                                            "${workspaceFolder}/outputs"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Backtest: full dataset (12y)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/toy_005930_backtest.py",
+                               "console":  "integratedTerminal",
+                               "cwd":  "${workspaceFolder}",
+                               "envFile":  "${workspaceFolder}/.env",
+                               "justMyCode":  true,
+                               "args":  [
+                                            "--csv",
+                                            "${workspaceFolder}/data/kospi_top100_ohlc_12y.csv",
+                                            "--entry-rule",
+                                            "A_20_PL",
+                                            "--plot",
+                                            "--outdir",
+                                            "${workspaceFolder}/outputs"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Download: KOSPI MCAP100",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/download_krx_ohlcv_panel.py",
+                               "console":  "integratedTerminal",
+                               "cwd":  "${workspaceFolder}",
+                               "envFile":  "${workspaceFolder}/.env",
+                               "justMyCode":  true,
+                               "args":  [
+                                            "--universe",
+                                            "kospi_mcap100",
+                                            "--bars",
+                                            "5000",
+                                            "--max-tickers",
+                                            "5",
+                                            "--sleep",
+                                            "0.1",
+                                            "--out",
+                                            "${workspaceFolder}/data/kospi_mcap100_adj_5000_test.csv"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Download: KRX Futures IDX",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/download_krx_futures_idx.py",
+                               "console":  "integratedTerminal",
+                               "cwd":  "${workspaceFolder}",
+                               "envFile":  "${workspaceFolder}/.env",
+                               "justMyCode":  true,
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Draw: MATLAB Figure",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/Draw_matlab_figure.py",
+                               "console":  "integratedTerminal",
+                               "cwd":  "${workspaceFolder}",
+                               "envFile":  "${workspaceFolder}/.env",
+                               "justMyCode":  true,
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Plotly Viewer: 005930 Interactive ABC",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/tools/plotly_viewer.py",
+                               "console":  "integratedTerminal",
+                               "cwd":  "${workspaceFolder}",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--price-csv",
+                                            "outputs_005930/price_indicators_005930.csv",
+                                            "--equity-csv",
+                                            "outputs_005930/equity_curve.csv",
+                                            "--trades-csv",
+                                            "outputs_005930/trades.csv",
+                                            "--title",
+                                            "005930 | Strategy C | Interactive A/B/C",
+                                            "--out",
+                                            "outputs_005930/interactive_abc.html"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           }
+                       ]
 }

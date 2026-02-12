@@ -5,7 +5,12 @@
 # Backtest / research outputs (generated)
 outputs/*
 !outputs/.gitkeep
-
+# Backtest / research outputs (generated)
+outputs_combo/*
+!outputs_combo/.gitkeep
+# Backtest / research outputs (generated)
+outputs_combo_smoke/*
+!outputs_combo_smoke/.gitkeep
 # Local data/cache (generated)
 data_local/
 cache/

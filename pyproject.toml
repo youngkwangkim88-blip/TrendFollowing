@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
+    "matlabengine>=25.2.2",
     "numpy<2.0",
     "pandas>=2.3.3",
+    "plotly>=6.5.2",
     "pyarrow>=23.0.0",
     "pydantic-settings>=2.12.0",
     "pykrx==1.2.3",
