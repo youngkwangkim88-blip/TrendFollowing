@@ -38,8 +38,8 @@
 - 진입 규칙은 `entry_rule_type`이라는 옵션 파라미터로 관리한다.
 - 후보군:
   - **Type A: Turtle(돈치안 브레이크아웃) 계열**
-  - **Type B: 회귀 기반(정규화 기울기 + R²) 계열**
-  - **Strategy C: 시계열 모멘텀 + 이동평균선 대순환(6단계) + 시장(지수) 필터**
+  - **Type B: EMA cross + Donchian breakout 계열 (신규)**
+  - **Type C: Time-series momentum(모멘텀) 계열 (신규)**
 
 ---
 
@@ -58,6 +58,11 @@
 ## 4) Type A — Turtle Trading(돈치안 브레이크아웃)
 Type A는 돈치안 채널 돌파를 사용한다.  
 돈치안 채널은 **과거 N일의 고가/저가 범위**를 이용한다.
+
+> 구현 주의: 본 프로젝트에서의 “Strategy A”는 단일 윈도우가 아니라,
+> **A.1(20) + A.2(PL 필터) + A.3(55 override)** 를 합친 **`A_TURTLE`** 를 의미한다.
+> `A_20_PL`, `A_55`는 과거 호환/디버깅을 위해 남겨둔 *legacy* 옵션이며,
+> 기본 스윕/리포트(LONG_ONLY)에서는 제거한다.
 
 ### 4.1 돈치안 채널 정의(룩어헤드 방지)
 - 상단(Upper):
@@ -86,8 +91,8 @@ Type A는 돈치안 채널 돌파를 사용한다.
 
 ---
 
-### 4.3 Type A.2 — PL 필터(Profit/Loss Filter) (A.1에만 적용)
-- 목적: 직전 거래가 “수익”이었을 경우, **A.1의 반대 방향 진입 신호**를 무시한다.
+### 4.3 Type A.2 — PL 필터(Profit/Loss Filter)
+- 목적: 직전 거래가 “수익”이었을 경우, **다음 진입에서 반대 방향 시도**를 억제한다.
 - 정의:
   - 각 종목별로 “직전 종료된 트레이드”의 방향(`last_dir ∈ {long, short}`)과 손익(`last_pnl`)을 저장한다.
   - `last_pnl > 0`인 경우에 한해 필터가 활성화된다.
@@ -100,7 +105,9 @@ Type A는 돈치안 채널 돌파를 사용한다.
 - 직전 거래가 **long이고 수익**이었다면 → 이번 A.1의 **short 진입 신호**는 무시
 - 직전 거래가 **short이고 수익**이었다면 → 이번 A.1의 **long 진입 신호**는 무시
 
-> 주: 본 필터는 **A.3(55)에는 적용하지 않는다.**
+> 구현 옵션화: 본 필터는 이제 “Filter A”로 승격되어, A/B/C 등 **여러 진입 전략에 대해 ON/OFF** 할 수 있다.
+> 단, Strategy A에서는 규칙 우선순위를 유지한다:
+> **Donchian55(override) > PL Filter > Donchian20**
 
 ---
 
@@ -118,11 +125,50 @@ Type A는 돈치안 채널 돌파를 사용한다.
 
 ---
 
-## 5) Type B — 회귀 기반(정규화 기울기 + R²) 진입
-Type B는 “추세의 방향(기울기)”과 “선형 추세의 설명력(R²)”을 함께 사용한다.
+## 5) Type B — EMA(5/20) cross 이후 Donchian(10) breakout
+Type B는 “추세 전환의 초기 신호(EMA cross)”를 먼저 확인한 뒤,
+실제 추세 가속이 발생했을 때(Donchian10 breakout)만 진입한다.
 
-### 5.1 왜 ‘기울기 정규화’가 필요한가(요약)
-일반적인 선형 회귀 기울기(slope)는 단위가 `ΔPrice/ΔTime`이므로,  
+### 5.1 EMA(5/20) 교차 정의
+- GOLDEN cross: `EMA5_{T-1} <= EMA20_{T-1}` 그리고 `EMA5_T > EMA20_T`
+- DEAD cross: `EMA5_{T-1} >= EMA20_{T-1}` 그리고 `EMA5_T < EMA20_T`
+
+### 5.2 Donchian(10) breakout
+- `DonchianHigh_10(T) = max( H_{T-10} ... H_{T-1} )`
+- `DonchianLow_10(T)  = min( L_{T-10} ... L_{T-1} )`
+
+### 5.3 진입 규칙
+- Long:
+  - 직전에 GOLDEN cross가 발생했고(=레짐이 long),
+  - 그 이후의 어느 날 `C_T >= DonchianHigh_10(T)`이면 → `T+1 09:00 시장가` 진입
+- Short:
+  - 직전에 DEAD cross가 발생했고(=레짐이 short),
+  - 그 이후의 어느 날 `C_T <= DonchianLow_10(T)`이면 → `T+1 09:00 시장가` 진입
+
+> “이후”의 의미: 교차 발생일 당일에는 breakout이 동시에 발생해도 진입하지 않고,
+> 다음 날부터 breakout을 관찰한다(lookahead 방지 + 과최적화 억제).
+
+## 6) Type C — Time-series momentum(모멘텀) 진입
+Type C는 63거래일 모멘텀을 사용해, 임계치 돌파 시에만 진입한다.
+
+- 모멘텀 정의:
+  - `MOM63_T = Close_T / Close_{T-63} - 1`
+- 기본 진입:
+  - Long: `MOM63`가 +5%를 상향 돌파
+  - Short: `MOM63`가 -5%를 하향 돌파
+
+> 실제 운영에서는 Filter B/C(대순환)를 함께 조합해 “시장>업종>종목” 흐름을 반영한다.
+
+---
+
+## Appendix) (Deprecated) 회귀 기반 Strategy B
+아래 “정규화 기울기 + R²” 기반 Type B 규칙은 **이제 Deprecated**이며,
+본 세션에서의 “Strategy B”는 *EMA cross + Donchian10 breakout*을 의미한다.
+
+과거 실험 재현이 필요하면, 회귀 기반 전략B는 별도 브랜치/모듈로 분리해서 유지한다(본 세션 기본 코드에는 미포함).
+
+### Appendix.B.1 왜 ‘기울기 정규화’가 필요한가(요약)
+일반적인 선형 회귀 기울기(slope)는 단위가 `ΔPrice/ΔTime`이므로,
 가격 레벨이 큰 종목이 기울기가 더 크게 보이는 왜곡이 발생한다.
 
 - A 종목(1,000원): 하루 10원 상승 → slope = 10 (≈ +1%/day)
@@ -131,7 +177,7 @@ Type B는 “추세의 방향(기울기)”과 “선형 추세의 설명력(R²
 단순 slope만 보면 B가 더 강해 보이지만, 수익률 관점의 추세는 A가 더 강하다.  
 따라서 slope를 “가격 대비 비율”로 정규화한다.
 
-### 5.2 정규화 기울기(Percentage Slope) 정의
+### Appendix.B.2 정규화 기울기(Percentage Slope) 정의
 - 회귀 구간: 최근 `W = 20`일
 - 종속변수: `y_i = Close_{t-W+1+i}` (i=0..W-1)
 - 독립변수: `x_i = i` (0..W-1)
@@ -143,11 +189,11 @@ Type B는 “추세의 방향(기울기)”과 “선형 추세의 설명력(R²
 
 > 단위: “%/day”에 가까운 해석이 가능하다.
 
-### 5.3 R-square 조건
+### Appendix.B.3 R-square 조건
 - 동일 회귀에서 계산된 `R²`가:
   - `R² > 0.6`일 때만 신호 유효
 
-### 5.4 60일 이동평균 방향 필터
+### Appendix.B.4 60일 이동평균 방향 필터
 - `MA60_t = SMA(Close, 60)` (기본은 단순이평; 필요 시 EMA로 변경 가능)
 - 필터:
   - `C_t < MA60_t`이면 **long 금지**
@@ -155,7 +201,7 @@ Type B는 “추세의 방향(기울기)”과 “선형 추세의 설명력(R²
 
 ---
 
-### 5.5 Type B.1 — 정규화 기울기(20) 0선 돌파 + R²
+### Appendix.B.5 Type B.1 — 정규화 기울기(20) 0선 돌파 + R²
 - 파라미터:
   - `W = 20`
   - `R2_threshold = 0.6`
@@ -185,16 +231,16 @@ Type B는 “추세의 방향(기울기)”과 “선형 추세의 설명력(R²
 
 ```yaml
 entry:
-  rule_type: "A_20_PL"     # ["A_20_PL", "A_55", "B_SLOPE20"]
-  turtle:
-    donchian_window_1: 20
-    donchian_window_2: 55
-    pl_filter: true        # A_20_PL에서만 true
-  regression:
-    window: 20
-    r2_threshold: 0.6
-    ma_window: 60
-    ma_type: "SMA"
+  rule_type: "A_TURTLE"     # ["A_TURTLE", "B_EMA_CROSS_DC10", "C_TSMOM63"]
+  # Filters (independent toggles)
+  filters:
+    A_PL: true            # Filter A
+    B_CYCLE: true         # Filter B (standard: always ON)
+    C_MARKET_CYCLE: false # Filter C
+
+  # Rule-specific params are currently fixed in code for the toy run
+  # (Donchian windows, EMA windows, momentum window/threshold). For full optimization,
+  # expose them as config/CLI knobs later.
 ```
 
 ---
@@ -207,90 +253,10 @@ entry:
 
 ---
 
-## 6) Strategy C — 시계열 모멘텀 + 이동평균선 대순환(6단계) + 시장(지수) 필터
-### 6.1 목적/가정
-- 대상: **삼성전자처럼 사이클(경기 민감) 성격이 강한 종목**에서 “큰 상승 국면”만 취하는 것을 목표로 한다.
-- 지향점(원리 시험):
-  - 승률(Win Rate) ≈ 35%
-  - 손익비(Avg Win / Avg Loss) ≈ 5
+## Filters (A/B/C)
 
-> 주: 손절/TS/피라미딩/비용 모델은 기존 문서(`capital_management_rules_v2.md`) 규칙을 그대로 따른다.
+See `docs/filters.md`.
 
-### 6.2 모멘텀 정의(기본: 63거래일)
-- `MOM_L(T) = Close_T / Close_{T-L} - 1`
-- 기본 `L=63` (약 3개월)
-- 코드 컬럼명: `mom_{L}` (예: `mom_63`)
-
-### 6.3 이동평균선 대순환(6단계) 정의 (EMA 5/20/40)
-세 개의 EMA를 계산한다.
-- 단기: `EMA_5`
-- 중기: `EMA_20`
-- 장기: `EMA_40`
-
-**단계(위→아래 순서)**
-1) `EMA_5 > EMA_20 > EMA_40`  
-2) `EMA_20 > EMA_5 > EMA_40`  
-3) `EMA_20 > EMA_40 > EMA_5`  
-4) `EMA_40 > EMA_20 > EMA_5`  
-5) `EMA_40 > EMA_5 > EMA_20`  
-6) `EMA_5 > EMA_40 > EMA_20`
-
-- 코드 컬럼명: `cycle_phase_{s}_{m}_{l}` (예: `cycle_phase_5_20_40`)
-- 동점(동일값) 등으로 순서가 불명확한 경우 phase는 NaN으로 처리(=필터 불통과).
-
-### 6.4 진입 필터(롱만)
-**롱 허용 구간:** 6단계 → 1단계 → 2단계  
-즉, 롱은 아래 두 조건이 모두 성립할 때만 허용한다.
-
-- (종목 필터) `stock_phase ∈ {6,1,2}`
-- (시장 필터) `market_phase ∈ {6,1,2}`  
-  - 시장 phase는 **KOSPI200 선물(지수)** CSV로부터 산출한다.
-  - 코드 컬럼명: `mkt_cycle_phase_5_20_40` (prefix 기본값 `mkt`)
-
-### 6.5 Strategy C 진입 규칙(레짐 엔트리)
-종가 기반 판단(T), 익일 시가 진입(T+1 09:00):
-
-- `MOM_63(T) > +5%`
-- `stock_phase(T) ∈ {6,1,2}`
-- `market_phase(T) ∈ {6,1,2}`
-
-그리고 **조건이 True로 “처음 전환되는 날”에만 진입**한다.
-- `cond(T)=True` AND `cond(T-1)=False` → `T+1` 시가에 1 unit 매수
-
-### 6.6 Strategy C 레짐 청산(옵션, 기본 ON)
-포지션 보유 중 아래 중 하나라도 성립하면, 다음날 시가에 전량 청산한다.
-- `MOM_63(T) ≤ 0%` (exit threshold)
-- `stock_phase(T) ∉ {6,1,2}`
-- `market_phase(T) ∉ {6,1,2}`
-
-- 코드 exit_reason: `REGIME_EXIT_C_TSMOM_CYCLE`
-
-### 6.7 실행 방법 (Toy 005930)
-```bash
-python scripts/toy_005930_backtest.py \
-  --csv data/krx100_adj_5000.csv \
-  --entry-rule C_TSMOM_CYCLE \
-  --market-csv data/kospi200_futures.csv \
-  --c-mom-window 63 \
-  --c-enter-thr 0.05 \
-  --c-exit-thr 0.0 \
-  --outdir outputs
-```
-
-- `--market-csv`를 주지 않고 실행하려면 `--c-no-market-filter`를 명시해야 한다(시장 필터 비활성).
-
-
----
-
-## 부록) Type B 변형(BA/BB)
-
-005930(삼성전자)와 같이 회귀 기반 지표가 **전환점에서 R²가 낮아지는** 종목에서 `B_SLOPE20`이 신호를 거의 만들지 않는 경우가 있어, 아래 변형을 추가했다.
-
-- `BA_REGIME20` (BA 전략)
-  - 0선 돌파가 아니라 **regime 진입** 형태
-  - `norm_slope_20 > 0` & `r2_20 > 0.6` & `close >= MA60` 조건이 **False→True**로 전환될 때 LONG 진입
-  - 숏은 대칭
-
-- `BB_CROSS20_R2PREV` (BB 전략)
-  - 0선 돌파는 유지하되, 필터를 `r2_20(t-1)`로 평가
-  - 전환 당일의 R² 저하 문제를 완화
+- Filter A: PL filter (block immediate flip after profitable trade)
+- Filter B: Ticker EMA(5/20/40) cycle filter (Long 6-1-2, Short 3-4-5)
+- Filter C: Market EMA(5/20/40) cycle filter (Long 6-1-2, Short 3-4-5)

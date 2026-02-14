@@ -34,7 +34,14 @@ class Account:
             return 0.0
         deducted = float(self.accrued_interest)
         if deducted != 0.0:
-            self.cash_free -= deducted
+            # Deduct regardless of where the cash is parked (free vs CMA).
+            # (This keeps NAV consistent even if we "park" cash back into CMA.)
+            if self.cash_free >= deducted:
+                self.cash_free -= deducted
+            else:
+                remain = deducted - self.cash_free
+                self.cash_free = 0.0
+                self.cash_cma -= remain
         self.accrued_interest = 0.0
         return deducted
 

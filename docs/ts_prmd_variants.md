@@ -19,7 +19,7 @@
 - 활성화 조건(롱): `Hmax >= (1+ts_activate_gain)*X` (기본 20% 상승)
 - TS 레벨(롱): `max((1+ts_floor_gain)*X, (1-ts_trail_frac)*Hmax)`
 - 숏은 대칭적으로 `Lmin` 기반
-- 피라미딩 발생 시: Hmax/Lmin 리셋 + TS 비활성화 후 재활성화 조건을 다시 충족해야 함
+- 피라미딩 발생 시: Hmax/Lmin 및 TS 활성 상태를 **리셋하지 않음**(합산 포지션 기준으로 안전망 유지)
 
 ### TS.B (EMA5/20 Cross exit)
 - **롱:** EMA5/EMA20 **Dead-cross** 발생 시(전일 EMA5>=EMA20 && 당일 EMA5<EMA20) → 다음날 시가 청산

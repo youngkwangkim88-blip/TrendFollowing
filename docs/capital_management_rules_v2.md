@@ -47,6 +47,11 @@
 
 - `unit_shares = floor( M * R / ATR10 ) = floor( 0.01 * M / ATR10 )`
 
+> **M(연초 기준 총자금) 업데이트(확정)**  
+> - `M`은 고정 상수가 아니라, **매년 연초에 NAV를 기준으로 리베이스**한다.  
+> - 백테스트 구현에서는, 연말 마지막 거래일 EOD NAV를 다음 해의 `M`으로 설정하여(복리 반영) 그 해의 1 unit을 산정한다.
+
+
 > 구현 노트:  
 > - `unit_shares`는 정수 주식 수량이다.  
 > - KRX 호가단위(틱)와 무관하게 “수량”은 정수로 처리한다.
@@ -147,11 +152,84 @@ TS는 “수익 구간(±20%) 진입 이후”에만 활성화되며, 활성화 
 ### 9.3 H_max / L_min 추적 규칙(확정)
 - 롱: 진입(또는 피라미딩 직후)부터 `H_max = max(H_max, H_t)`로 갱신
 - 숏: 진입(또는 피라미딩 직후)부터 `L_min = min(L_min, L_t)`로 갱신
-- **피라미딩(추가 진입) 발생 시점에 H_max / L_min은 반드시 리셋**한다.
-  - 롱: 피라미딩 체결일 기준 `H_max := H_{entry_day}` (또는 `max(H_{entry_day}, entry_price)`; 구현에서 고정)
-  - 숏: 피라미딩 체결일 기준 `L_min := L_{entry_day}` (또는 `min(L_{entry_day}, entry_price)`; 구현에서 고정)
+- 피라미딩(추가 진입) 발생 시점에도 **H_max / L_min은 리셋하지 않는다.**
+  - 합산 포지션(trade life) 기준으로 extrema를 유지한다(= TS 안전망 유지).
+  - 단, 평단 `X`와 `ATR10` 기준값은 피라미딩 체결 시점에 재계산/업데이트된다(섹션 10.3).
+
+
+## 9.4 Even-stop (브레이크이븐 스탑) — TS 타입과 무관, 항상 적용
+TS 타입(TS.A/TS.B/TS.C)과 무관하게, 아래 조건을 만족하면 **진입가(X)로 되돌아왔을 때 즉시 청산**한다.
+
+### (1) 트리거(“+10% 수익 발생” 조건)
+- Long: 보유 중 어느 시점이든 `H_max >= 1.10 * X` 이면 **even-stop arm = ON**
+- Short: 보유 중 어느 시점이든 `L_min <= 0.90 * X` 이면 **even-stop arm = ON**
+
+> `H_max/L_min`은 섹션 9.3 규칙으로 추적하므로, 위 조건은 “보유 중 한 번이라도 +10% 이상 유리하게 움직였는지(MFE)”를 의미한다.
+
+### (2) 청산 조건(“진입가까지 되돌림”)
+- Long: 가격이 `X`에 **되돌아와 터치/이탈**하면 청산
+  - 백테스트 집행 레벨: `EVEN_long = tick_down(X)`
+- Short: 가격이 `X`에 **되돌아와 터치/이탈**하면 청산
+  - 백테스트 집행 레벨: `EVEN_short = tick_up(X)`
+
+### (3) 리셋/유지 규칙(업데이트)
+- 신규 진입 직후에는 `even-stop arm = OFF` 로 시작한다.
+- 피라미딩으로 평단 `X`가 재계산되더라도, **이미 arm 된 상태는 유지**한다(= once-armed).  
+  - 단, even-stop의 체결 레벨은 매 시점의 최신 `X`를 사용하므로, 평단이 바뀌면 break-even 레벨도 자동으로 바뀐다.
+
+## 9.5 Emergency stop — TS 타입과 무관, 항상 적용(3종)
+Emergency stop은 “급격한 역방향 변동”을 제한하기 위한 보호 규칙이다.  
+파라미터 `p = 0.05`(5%)로 두며, **TS 타입과 무관하게 항상 적용**한다.
+
+본 규칙은 3개 서브 룰로 구성된다.
+
+- **ES1 (Open 기준)**: 당일 시가 `O_T` 기준 ±p% 역방향이면 **장중 즉시 청산**
+- **ES2 (전일 종가 기준 터치)**: 전일 종가 `C_{T-1}` 기준 ±p% 역방향을 **장중 터치하면 즉시 청산**
+- **ES3 (Close-to-close 기준)**: `C_T/C_{T-1}-1`이 ±p% 역방향이면 **익일 시가에 청산(스케줄)**
 
 ---
+
+### 9.5.1 ES1: 당일 시가(open) 기준 ±p% 역방향 → 장중 시장가 청산
+- Long: `E1_long(T) = tick_down((1 - p) * O_T)`
+- Short: `E1_short(T) = tick_up((1 + p) * O_T)`
+
+**트리거/체결가 모델(일봉 OHLC)**
+- Long: `L_T <= E1_long(T)` → 체결가 `= E1_long(T)`
+- Short: `H_T >= E1_short(T)` → 체결가 `= E1_short(T)`
+
+> 메모: ES1은 기준이 `O_T`이므로 정의상 “갭 트리거”가 거의 발생하지 않는다. (구현은 일관성을 위해 GAP/TOUCH 모델로 처리해도 무방)
+
+---
+
+### 9.5.2 ES2: 전일 종가(close) 기준 ±p% 역방향 터치 → 장중 시장가 청산
+- Long: `E2_long(T) = tick_down((1 - p) * C_{T-1})`
+- Short: `E2_short(T) = tick_up((1 + p) * C_{T-1})`
+
+**트리거/체결가 모델(일봉 OHLC)**
+- Long
+  - 갭 트리거: `O_T <= E2_long(T)` → 체결가 `= O_T`
+  - 장중 터치: `O_T > E2_long(T)` 이고 `L_T <= E2_long(T)` → 체결가 `= E2_long(T)`
+- Short
+  - 갭 트리거: `O_T >= E2_short(T)` → 체결가 `= O_T`
+  - 장중 터치: `O_T < E2_short(T)` 이고 `H_T >= E2_short(T)` → 체결가 `= E2_short(T)`
+
+---
+
+### 9.5.3 ES3: 종가-종가(close-to-close) 기준 ±p% 역방향 → 익일 시가 청산
+ES3는 “가격 레벨”이 아니라 **종가 기반(close-based) 스케줄 룰**이다.
+
+- Long: `C_T / C_{T-1} - 1 <= -p` → `T+1` 시가(`O_{T+1}`) 전량 청산
+- Short: `C_T / C_{T-1} - 1 >= +p` → `T+1` 시가(`O_{T+1}`) 전량 청산
+
+> 우선순위: ES3는 close-based exit들(TS.B 등)보다 우선하며, 이미 `pending_exit_reason`이 존재하면 추가로 덮어쓰지 않는다.
+
+---
+
+### 9.5.4 우선순위/통합 규칙(중요)
+- ES1/ES2는 **가격-레벨 스탑**이므로 섹션 11.3의 `effective_stop` 후보에 포함된다.  
+  (다른 스탑과 동일하게 GAP/TOUCH 모델 적용)
+- ES3는 close-based 스케줄이므로 `effective_stop` 후보에는 포함되지 않는다.
+
 
 ## 10) 피라미딩(Pyramiding)
 피라미딩은 “가용 여유(capacity)가 있을 때, 수익 구간에서 1 unit 추가 진입”하는 규칙이다.
@@ -177,8 +255,10 @@ TS는 “수익 구간(±20%) 진입 이후”에만 활성화되며, 활성화 
 3) **기준값 업데이트**
    - `X := X_new`
    - 손절가/TS 레벨을 **새 X, 새 ATR10 기준으로 재계산**
-4) **H_max / L_min 리셋**
-   - 섹션 9.3 규칙대로 반드시 리셋 후, 그 시점부터 재추적
+4) **H_max / L_min 유지(업데이트)**
+   - 피라미딩 이후에도 extrema는 유지한다(섹션 9.3).
+   - 목적: 피라미딩 직후 급반등/급락에서 TS/보호 스탑이 무력화되는 문제를 방지.
+
 
 ---
 
@@ -195,13 +275,16 @@ TS는 “수익 구간(±20%) 진입 이후”에만 활성화되며, 활성화 
 - 롱(손절/TS): `O_t > stop_level_t` 이고 `L_t <= stop_level_t` 이면 **장중 터치** → 체결가 `= stop_level_t`
 - 숏(손절/TS): `O_t < stop_level_t` 이고 `H_t >= stop_level_t` 이면 **장중 터치** → 체결가 `= stop_level_t`
 
-### 11.3 동일 일자에 손절과 TS가 모두 가능한 경우(우선순위)
+### 11.3 동일 일자에 손절/TS/even-stop이 모두 가능한 경우(우선순위)
 - 롱: 더 “타이트한”(더 높은) 레벨이 먼저 체결될 수 있으므로
-  - `effective_stop_long = max(X_cut_long, TS_long(활성 시))`
+  - `effective_stop_long = max(X_cut_long, TS_long(활성 시), EVEN_long(arm 시))`
 - 숏: 더 “타이트한”(더 낮은) 레벨이 먼저 체결될 수 있으므로
-  - `effective_stop_short = min(X_cut_short, TS_short(활성 시))`
+  - `effective_stop_short = min(X_cut_short, TS_short(활성 시), EVEN_short(arm 시))`
 
-> 일봉 데이터만으로는 경로가 불명확하므로, 위 방식은 “먼저 닿을 가능성이 높은 타이트한 레벨”을 적용하는 근사이다.
+> TS.B(EMA cross exit)는 “가격 레벨”이 아니므로 위 우선순위에 직접 포함되지 않지만, **even-stop은 TS 타입과 무관하게 가격 레벨로 항상 포함**된다.
+
+> Emergency stop(섹션 9.5)의 ES1/ES2 또한 가격-레벨 스탑이므로, `effective_stop` 후보에 포함된다(= 다른 스탑과 동일하게 GAP/TOUCH 모델 적용).
+
 
 ---
 

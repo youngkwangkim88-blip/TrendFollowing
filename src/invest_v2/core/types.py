@@ -11,59 +11,55 @@ class Side(int, Enum):
     SHORT = -1
 
 
+class TradeMode(str, Enum):
+    """Directional mode for the single-symbol engine."""
+
+    LONG_ONLY = "LONG_ONLY"
+    SHORT_ONLY = "SHORT_ONLY"
+    LONG_SHORT = "LONG_SHORT"
+
+
 class EntryRuleType(str, Enum):
-    # -----------------
     # Type A (Turtle)
-    # -----------------
     # NOTE: In this project spec, "Strategy A" is the *combined* rule:
     #   - A.1 Donchian(20)
     #   - A.2 PL filter applied to A.1
-    #   - A.3 Donchian(55) which ignores PL filter (override)
+    #   - A.3 Donchian(55) which *ignores* PL filter (override)
     # Prefer A_TURTLE unless you intentionally want a legacy single-window variant.
     A_TURTLE = "A_TURTLE"
+
+    # Type B (NEW): EMA(5/20) cross -> then Donchian(10) breakout
+    #   - After GOLDEN cross, wait for 10-day Donchian high breakout -> LONG
+    #   - After DEAD cross,   wait for 10-day Donchian low  breakout -> SHORT
+    B_EMA_CROSS_DC10 = "B_EMA_CROSS_DC10"
 
     # Legacy single-window variants (kept for compatibility / debugging)
     A_20_PL = "A_20_PL"  # Donchian(20) with PL filter
     A_55 = "A_55"        # Donchian(55) without PL filter
 
-    # ---------------------
-    # Type B (Regression)
-    # ---------------------
-    B_SLOPE20 = "B_SLOPE20"  # legacy strict: (0-cross) & (r2>0.6) & (MA60 filter)
+    # Short patch: EMA(20/40) dead cross entry (SHORT only)
+    #   - At T close, if EMA20 crosses below EMA40 -> schedule SHORT entry at T+1 open.
+    SHORT_EMA20_40_DEAD = "SHORT_EMA20_40_DEAD"
 
-    # Type B variants (added after observing 0-signal issue on 005930)
-    BA_REGIME20 = "BA_REGIME20"            # Regime entry: ns>0 & r2>thr & MA60 (enter when regime turns ON)
-    BB_CROSS20_R2PREV = "BB_CROSS20_R2PREV"  # 0-cross + r2(t-1) filter
-
-    # ---------------------
-    # Strategy C
-    # ---------------------
-    C_TSMOM_CYCLE = "C_TSMOM_CYCLE"  # Time-series momentum + Moving Average Cycle(6-phase) filter
+    # NOTE: 과거 회귀 기반 전략B는 본 세션 범위에서 폐기(deprecated)했다.
+    # 필요하면 별도 브랜치/파일로 분리해서 유지한다.
 
 
 class TrailingStopType(str, Enum):
-    """Trailing stop / exit policy selector.
-
-    Naming follows user-facing convention:
-      - TS.A: percentage-based trailing stop (current default)
-      - TS.B: EMA5/20 cross exit (dead-cross for long, golden-cross for short)
-      - TS.C: Darvas/box-style S/R breakout trailing stop (min 20 days)
-    """
-
-    TS_A = "TS.A"
-    TS_B = "TS.B"
-    TS_C = "TS.C"
+    # TS.A: % 기반 트레일링 스탑(기존 TS)
+    A_PCT = "TS.A"
+    # TS.B: EMA5/20 cross 기반 TS
+    B_EMA_CROSS = "TS.B"
+    # TS.C: Darvas/Box(최소 20일) support/resistance 기반 TS
+    C_DARVAS_BOX = "TS.C"
 
 
 class PyramidingType(str, Enum):
-    """Pyramiding policy selector.
-
-    - PRMD.A: percentage trigger (legacy)
-    - PRMD.B: Darvas/box breakout pyramiding (min 20 days) + 5-day cooldown
-    """
-
-    PRMD_A = "PRMD.A"
-    PRMD_B = "PRMD.B"
+    OFF = "OFF"
+    # PRMD.A: % 기준 피라미딩(기존)
+    A_PCT = "PRMD.A"
+    # PRMD.B: Darvas/20-box breakout 피라미딩 + cooldown
+    B_DARVAS_BOX = "PRMD.B"
 
 
 @dataclass(frozen=True)

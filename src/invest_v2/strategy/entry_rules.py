@@ -1,82 +1,86 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional, Sequence, Tuple
+from typing import Optional
 
 import pandas as pd
 
 from invest_v2.core.types import EntryRuleType, Side
 
 
+@dataclass(frozen=True)
+class EntryDecision:
+    """Entry decision evaluated at day T close.
+
+    The backtest engine will convert this decision into an order executed at day T+1 open.
+
+    Attributes
+    ----------
+    side:
+        LONG / SHORT / FLAT
+    reason:
+        A short label used in order.reason / reports.
+    bypass_filter_pl:
+        If True, Filter A(PL filter) will not be applied to this decision.
+        (Used for Strategy A's Donchian55 override.)
+    """
+
+    side: Side
+    reason: str = ""
+    bypass_filter_pl: bool = False
+
+
 @dataclass
 class EntryContext:
+    # Filter A (PL) state
     last_trade_side: Optional[Side] = None
     last_trade_pnl: Optional[float] = None
+
+    # Strategy B state: remember the latest EMA cross regime
+    last_ema_cross_side: Optional[Side] = None
+    last_ema_cross_index: Optional[int] = None
 
 
 class EntryRule:
     def __init__(self, rule_type: EntryRuleType):
         self.rule_type = rule_type
 
-    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> Side:
-        """Evaluate entry signal at index i (close-based). Entry executes at next day's open."""
+    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> EntryDecision:
         raise NotImplementedError
-
-    def should_exit(self, df: pd.DataFrame, i: int, ctx: EntryContext, pos_side: Side) -> bool:
-        """Optional regime-based exit (close-based at index i, exit at next day's open).
-
-        Default is disabled (stop-loss / trailing-stop manages exits).
-        """
-        return False
-
-
-# ============================================================
-# Strategy A (Turtle): Donchian breakout with PL filter + 55 override
-# ============================================================
 
 
 class TurtleRule(EntryRule):
-    def __init__(self, rule_type: EntryRuleType, window: int, pl_filter: bool):
+    """Legacy single-window Donchian breakout."""
+
+    def __init__(self, rule_type: EntryRuleType, window: int, bypass_pl: bool = False):
         super().__init__(rule_type)
         self.window = int(window)
-        self.pl_filter = bool(pl_filter)
+        self.bypass_pl = bool(bypass_pl)
 
-    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> Side:
+    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> EntryDecision:
         if i <= 0:
-            return Side.FLAT
+            return EntryDecision(Side.FLAT)
 
         c = float(df["close"].iloc[i])
-        dh = df[f"donchian_high_{self.window}"].iloc[i]
-        dl = df[f"donchian_low_{self.window}"].iloc[i]
+        dh = df.get(f"donchian_high_{self.window}", pd.Series(index=df.index)).iloc[i]
+        dl = df.get(f"donchian_low_{self.window}", pd.Series(index=df.index)).iloc[i]
         if pd.isna(dh) or pd.isna(dl):
-            return Side.FLAT
+            return EntryDecision(Side.FLAT)
 
-        sig = Side.FLAT
         if c >= float(dh):
-            sig = Side.LONG
-        elif c <= float(dl):
-            sig = Side.SHORT
-
-        if sig == Side.FLAT:
-            return Side.FLAT
-
-        # PL filter: if last trade pnl > 0, ignore opposite-direction signal.
-        if self.pl_filter and ctx.last_trade_pnl is not None and ctx.last_trade_side is not None:
-            if ctx.last_trade_pnl > 0 and sig != ctx.last_trade_side:
-                return Side.FLAT
-
-        return sig
+            return EntryDecision(Side.LONG, reason=f"ENTRY_A_{self.window}", bypass_filter_pl=self.bypass_pl)
+        if c <= float(dl):
+            return EntryDecision(Side.SHORT, reason=f"ENTRY_A_{self.window}", bypass_filter_pl=self.bypass_pl)
+        return EntryDecision(Side.FLAT)
 
 
 class TurtleComboRule(EntryRule):
     """Strategy A: A.1(20) + A.2(PL filter) + A.3(55 override).
 
-    Evaluation order (close-based at day T, fill at T+1 open):
-      1) A.3 Donchian(55) breakout -> ALWAYS take (ignores PL filter)
-      2) Else A.1 Donchian(20) breakout -> apply PL filter (A.2)
-
-    If both 20 and 55 trigger in the same direction, 55 still wins but is equivalent.
-    If 20 triggers one way and 55 triggers the other, 55 wins (stronger breakout).
+    Priority
+    --------
+    1) Donchian(55) breakout: ALWAYS take (bypasses PL filter)
+    2) Else Donchian(20) breakout: subject to PL filter (Filter A)
     """
 
     def __init__(self, donchian_window_20: int = 20, donchian_window_55: int = 55):
@@ -86,8 +90,8 @@ class TurtleComboRule(EntryRule):
 
     def _donchian_signal(self, df: pd.DataFrame, i: int, window: int) -> Side:
         c = float(df["close"].iloc[i])
-        dh = df[f"donchian_high_{window}"].iloc[i]
-        dl = df[f"donchian_low_{window}"].iloc[i]
+        dh = df.get(f"donchian_high_{window}", pd.Series(index=df.index)).iloc[i]
+        dl = df.get(f"donchian_low_{window}", pd.Series(index=df.index)).iloc[i]
         if pd.isna(dh) or pd.isna(dl):
             return Side.FLAT
         if c >= float(dh):
@@ -96,331 +100,158 @@ class TurtleComboRule(EntryRule):
             return Side.SHORT
         return Side.FLAT
 
-    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> Side:
+    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> EntryDecision:
         if i <= 0:
-            return Side.FLAT
+            return EntryDecision(Side.FLAT)
 
-        # 1) A.3: Donchian(55) always executes
+        # A.3: Donchian55 (override)
         sig55 = self._donchian_signal(df, i, self.w55)
         if sig55 != Side.FLAT:
-            return sig55
+            return EntryDecision(sig55, reason="ENTRY_A_55", bypass_filter_pl=True)
 
-        # 2) A.1: Donchian(20) with PL filter (A.2)
+        # A.1: Donchian20 (subject to PL filter)
         sig20 = self._donchian_signal(df, i, self.w20)
-        if sig20 == Side.FLAT:
-            return Side.FLAT
+        if sig20 != Side.FLAT:
+            return EntryDecision(sig20, reason="ENTRY_A_20", bypass_filter_pl=False)
 
-        if ctx.last_trade_pnl is not None and ctx.last_trade_side is not None:
-            if ctx.last_trade_pnl > 0 and sig20 != ctx.last_trade_side:
-                return Side.FLAT
-
-        return sig20
+        return EntryDecision(Side.FLAT)
 
 
-# ============================================================
-# Strategy B (Regression): slope(20) + r^2 + MA60
-# ============================================================
+class EmaCrossDonchianRule(EntryRule):
+    """Strategy B: EMA(5/20) cross -> then Donchian breakout.
 
+    Base rule
+    ---------
+    - After GOLDEN cross (ema5 crosses above ema20), wait until C >= DonchianHigh(10) -> LONG.
+    - After DEAD cross (ema5 crosses below ema20), wait until C <= DonchianLow(10)  -> SHORT.
 
-class RegressionRule(EntryRule):
-    """Legacy strict Type B.
+    Override (Filter A bypass)
+    --------------------------
+    - If the breakout happens on a wider Donchian window (default=20), this entry may bypass Filter A.
 
-    Condition (same day):
-      - norm_slope_20 0-cross
-      - r2_20 > 0.6
-      - MA60 direction filter
-
-    Observation: on 005930 the cross days typically have very low r2,
-    resulting in near-zero signals. BA/BB were introduced to relax this.
-    """
-
-    def __init__(self):
-        super().__init__(EntryRuleType.B_SLOPE20)
-
-    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> Side:
-        if i <= 1:
-            return Side.FLAT
-
-        ns_prev = df["norm_slope_20"].iloc[i - 1]
-        ns = df["norm_slope_20"].iloc[i]
-        r2 = df["r2_20"].iloc[i]
-        ma60 = df["ma60"].iloc[i]
-        c = float(df["close"].iloc[i])
-
-        if pd.isna(ns_prev) or pd.isna(ns) or pd.isna(r2) or pd.isna(ma60):
-            return Side.FLAT
-
-        if float(r2) <= 0.6:
-            return Side.FLAT
-
-        # 60MA directional filter
-        long_ok = c >= float(ma60)
-        short_ok = c <= float(ma60)
-
-        # 0-line crossing
-        if float(ns_prev) <= 0.0 and float(ns) > 0.0 and long_ok:
-            return Side.LONG
-        if float(ns_prev) >= 0.0 and float(ns) < 0.0 and short_ok:
-            return Side.SHORT
-
-        return Side.FLAT
-
-
-class BARegimeRule(EntryRule):
-    """Type B variant BA: 'Regime entry' instead of 0-cross.
-
-    Regime conditions:
-      LONG  when (norm_slope_20 > 0) & (r2_20 > 0.6) & (close >= MA60)
-      SHORT when (norm_slope_20 < 0) & (r2_20 > 0.6) & (close <= MA60)
-
-    Entry occurs only when the regime turns ON (False -> True).
-    """
-
-    def __init__(self, *, r2_thr: float = 0.6):
-        super().__init__(EntryRuleType.BA_REGIME20)
-        self.r2_thr = float(r2_thr)
-
-    def _cond_long(self, df: pd.DataFrame, i: int) -> Optional[bool]:
-        if i < 0:
-            return None
-        ns = df["norm_slope_20"].iloc[i]
-        r2 = df["r2_20"].iloc[i]
-        ma60 = df["ma60"].iloc[i]
-        c = df["close"].iloc[i]
-        if pd.isna(ns) or pd.isna(r2) or pd.isna(ma60) or pd.isna(c):
-            return None
-        return (float(ns) > 0.0) and (float(r2) > self.r2_thr) and (float(c) >= float(ma60))
-
-    def _cond_short(self, df: pd.DataFrame, i: int) -> Optional[bool]:
-        if i < 0:
-            return None
-        ns = df["norm_slope_20"].iloc[i]
-        r2 = df["r2_20"].iloc[i]
-        ma60 = df["ma60"].iloc[i]
-        c = df["close"].iloc[i]
-        if pd.isna(ns) or pd.isna(r2) or pd.isna(ma60) or pd.isna(c):
-            return None
-        return (float(ns) < 0.0) and (float(r2) > self.r2_thr) and (float(c) <= float(ma60))
-
-    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> Side:
-        if i <= 0:
-            return Side.FLAT
-
-        cl = self._cond_long(df, i)
-        cl_prev = self._cond_long(df, i - 1)
-        cs = self._cond_short(df, i)
-        cs_prev = self._cond_short(df, i - 1)
-
-        if cl is not None and cl_prev is not None:
-            if bool(cl) and (not bool(cl_prev)):
-                return Side.LONG
-
-        if cs is not None and cs_prev is not None:
-            if bool(cs) and (not bool(cs_prev)):
-                return Side.SHORT
-
-        return Side.FLAT
-
-
-class BBCrossR2PrevRule(EntryRule):
-    """Type B variant BB: keep 0-cross, but evaluate r2 at t-1.
-
-    Motivation: r2 is structurally low on the turning-point day.
-
-    Condition:
-      - r2_20(t-1) > 0.6
-      - MA60 direction filter (at day t)
-      - norm_slope_20 crosses 0 at day t
-    """
-
-    def __init__(self, *, r2_thr: float = 0.6):
-        super().__init__(EntryRuleType.BB_CROSS20_R2PREV)
-        self.r2_thr = float(r2_thr)
-
-    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> Side:
-        if i <= 1:
-            return Side.FLAT
-
-        ns_prev = df["norm_slope_20"].iloc[i - 1]
-        ns = df["norm_slope_20"].iloc[i]
-        r2_prev = df["r2_20"].iloc[i - 1]
-        ma60 = df["ma60"].iloc[i]
-        c = float(df["close"].iloc[i])
-
-        if pd.isna(ns_prev) or pd.isna(ns) or pd.isna(r2_prev) or pd.isna(ma60):
-            return Side.FLAT
-
-        if float(r2_prev) <= self.r2_thr:
-            return Side.FLAT
-
-        long_ok = c >= float(ma60)
-        short_ok = c <= float(ma60)
-
-        if float(ns_prev) <= 0.0 and float(ns) > 0.0 and long_ok:
-            return Side.LONG
-        if float(ns_prev) >= 0.0 and float(ns) < 0.0 and short_ok:
-            return Side.SHORT
-
-        return Side.FLAT
-
-
-# ============================================================
-# Strategy C: Time-series momentum + MA-cycle phase filter
-# ============================================================
-
-
-class TSMomCycleRule(EntryRule):
-    """Strategy C: Time-series momentum + Moving Average Cycle (6-phase) regime filter.
-
-    - Momentum: mom_L = Close_t / Close_{t-L} - 1
-    - Regime filter: allow LONG only when both:
-        (a) stock phase ∈ {6, 1, 2}
-        (b) market phase ∈ {6, 1, 2}  (KOSPI200 futures index, assumed provided via CSV)
-
-    Entry style: 'regime entry' (take only the first day the full condition turns True).
-    Exit style: optional regime exit (if condition turns False while holding LONG).
+    NOTE
+    ----
+    We treat "이후" literally: breakout entry is allowed only on days strictly after the cross day.
     """
 
     def __init__(
         self,
-        *,
-        mom_window: int = 63,
-        enter_thr: float = 0.05,
-        exit_thr: float = 0.0,
-        cycle_windows: Tuple[int, int, int] = (5, 20, 40),
-        allowed_phases_long: Sequence[int] = (6, 1, 2),
-        use_market_filter: bool = True,
-        market_prefix: str = "mkt",
+        ema_fast: str = "ema5",
+        ema_mid: str = "ema20",
+        donchian_window: int = 10,
+        donchian_override_window: int = 20,
     ):
-        super().__init__(EntryRuleType.C_TSMOM_CYCLE)
-        self.mom_window = int(mom_window)
-        self.enter_thr = float(enter_thr)
-        self.exit_thr = float(exit_thr)
-        s, m, l = (int(cycle_windows[0]), int(cycle_windows[1]), int(cycle_windows[2]))
-        self.cycle_windows = (s, m, l)
-        self.phase_col = f"cycle_phase_{s}_{m}_{l}"
-        self.mom_col = f"mom_{self.mom_window}"
-        self.use_market_filter = bool(use_market_filter)
-        self.market_prefix = str(market_prefix)
-        self.mkt_phase_col = f"{self.market_prefix}_cycle_phase_{s}_{m}_{l}"
-        self.allowed_phases_long = tuple(int(x) for x in allowed_phases_long)
+        super().__init__(EntryRuleType.B_EMA_CROSS_DC10)
+        self.ema_fast = str(ema_fast)
+        self.ema_mid = str(ema_mid)
+        self.w = int(donchian_window)
+        self.w_ovr = int(donchian_override_window)
 
-    def _phase_ok(self, phase_val: Any) -> bool:
-        if pd.isna(phase_val):
-            return False
-        try:
-            p = int(float(phase_val))
-        except Exception:
-            return False
-        return p in self.allowed_phases_long
+    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> EntryDecision:
+        if i <= 1:
+            return EntryDecision(Side.FLAT)
 
-    def _entry_condition(self, df: pd.DataFrame, i: int) -> Optional[bool]:
-        # Required columns
-        if self.mom_col not in df.columns or self.phase_col not in df.columns:
-            return None
-        if self.use_market_filter and self.mkt_phase_col not in df.columns:
-            return None
+        f_prev = df.get(self.ema_fast, pd.Series(index=df.index)).iloc[i - 1]
+        m_prev = df.get(self.ema_mid, pd.Series(index=df.index)).iloc[i - 1]
+        f = df.get(self.ema_fast, pd.Series(index=df.index)).iloc[i]
+        m = df.get(self.ema_mid, pd.Series(index=df.index)).iloc[i]
+        if pd.isna(f_prev) or pd.isna(m_prev) or pd.isna(f) or pd.isna(m):
+            return EntryDecision(Side.FLAT)
 
-        mom = df[self.mom_col].iloc[i]
-        phase = df[self.phase_col].iloc[i]
-        if pd.isna(mom) or pd.isna(phase):
-            return None
+        # Detect cross
+        golden = float(f_prev) <= float(m_prev) and float(f) > float(m)
+        dead = float(f_prev) >= float(m_prev) and float(f) < float(m)
+        if golden:
+            ctx.last_ema_cross_side = Side.LONG
+            ctx.last_ema_cross_index = i
+            return EntryDecision(Side.FLAT)
+        if dead:
+            ctx.last_ema_cross_side = Side.SHORT
+            ctx.last_ema_cross_index = i
+            return EntryDecision(Side.FLAT)
 
-        if float(mom) <= self.enter_thr:
-            return False
+        if ctx.last_ema_cross_side is None or ctx.last_ema_cross_index is None:
+            return EntryDecision(Side.FLAT)
+        if i <= int(ctx.last_ema_cross_index):
+            return EntryDecision(Side.FLAT)
 
-        if not self._phase_ok(phase):
-            return False
+        c = float(df["close"].iloc[i])
 
-        if self.use_market_filter:
-            mkt_phase = df[self.mkt_phase_col].iloc[i]
-            if not self._phase_ok(mkt_phase):
-                return False
+        # Evaluate override window first (bypass Filter A)
+        dh_ovr = df.get(f"donchian_high_{self.w_ovr}", pd.Series(index=df.index)).iloc[i]
+        dl_ovr = df.get(f"donchian_low_{self.w_ovr}", pd.Series(index=df.index)).iloc[i]
 
-        return True
+        # Then the base window (subject to Filter A)
+        dh = df.get(f"donchian_high_{self.w}", pd.Series(index=df.index)).iloc[i]
+        dl = df.get(f"donchian_low_{self.w}", pd.Series(index=df.index)).iloc[i]
 
-    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> Side:
+        if pd.isna(dh) or pd.isna(dl):
+            return EntryDecision(Side.FLAT)
+
+        if ctx.last_ema_cross_side == Side.LONG:
+            if not pd.isna(dh_ovr) and c >= float(dh_ovr):
+                return EntryDecision(Side.LONG, reason="ENTRY_B_GOLDEN_DC20_OVR", bypass_filter_pl=True)
+            if c >= float(dh):
+                return EntryDecision(Side.LONG, reason="ENTRY_B_GOLDEN_DC10", bypass_filter_pl=False)
+        elif ctx.last_ema_cross_side == Side.SHORT:
+            if not pd.isna(dl_ovr) and c <= float(dl_ovr):
+                return EntryDecision(Side.SHORT, reason="ENTRY_B_DEAD_DC20_OVR", bypass_filter_pl=True)
+            if c <= float(dl):
+                return EntryDecision(Side.SHORT, reason="ENTRY_B_DEAD_DC10", bypass_filter_pl=False)
+
+        return EntryDecision(Side.FLAT)
+
+
+class ShortEma2040DeadCrossRule(EntryRule):
+    """SHORT entry on EMA(20/40) dead cross.
+
+    Rule
+    ----
+    - At day T close:
+        if EMA20 crosses below EMA40 (dead cross), emit SHORT entry decision.
+
+    Notes
+    -----
+    - Exit is handled elsewhere (e.g., TS.B EMA5/20 golden-cross exit).
+    - This rule is intentionally *one-sided* (SHORT-only). It never emits LONG.
+    """
+
+    def __init__(self, ema_fast: str = "ema20", ema_slow: str = "ema40"):
+        super().__init__(EntryRuleType.SHORT_EMA20_40_DEAD)
+        self.ema_fast = str(ema_fast)
+        self.ema_slow = str(ema_slow)
+
+    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> EntryDecision:
         if i <= 0:
-            return Side.FLAT
+            return EntryDecision(Side.FLAT)
 
-        cond = self._entry_condition(df, i)
-        cond_prev = self._entry_condition(df, i - 1)
+        f_prev = df.get(self.ema_fast, pd.Series(index=df.index)).iloc[i - 1]
+        s_prev = df.get(self.ema_slow, pd.Series(index=df.index)).iloc[i - 1]
+        f = df.get(self.ema_fast, pd.Series(index=df.index)).iloc[i]
+        s = df.get(self.ema_slow, pd.Series(index=df.index)).iloc[i]
+        if pd.isna(f_prev) or pd.isna(s_prev) or pd.isna(f) or pd.isna(s):
+            return EntryDecision(Side.FLAT)
 
-        if cond is None or cond_prev is None:
-            return Side.FLAT
+        dead = float(f_prev) >= float(s_prev) and float(f) < float(s)
+        if dead:
+            return EntryDecision(Side.SHORT, reason="ENTRY_EMA20_40_DEAD", bypass_filter_pl=False)
 
-        if bool(cond) and (not bool(cond_prev)):
-            return Side.LONG
-
-        return Side.FLAT
-
-    def should_exit(self, df: pd.DataFrame, i: int, ctx: EntryContext, pos_side: Side) -> bool:
-        if pos_side != Side.LONG:
-            return False
-
-        # If we can't evaluate, be conservative and exit.
-        if self.mom_col not in df.columns or self.phase_col not in df.columns:
-            return True
-        if self.use_market_filter and self.mkt_phase_col not in df.columns:
-            return True
-
-        mom = df[self.mom_col].iloc[i]
-        phase = df[self.phase_col].iloc[i]
-        if pd.isna(mom) or pd.isna(phase):
-            return True
-
-        hold_ok = True
-
-        # Momentum must stay positive (or above exit_thr).
-        if float(mom) <= self.exit_thr:
-            hold_ok = False
-
-        # Stock phase must remain in allowed set.
-        if not self._phase_ok(phase):
-            hold_ok = False
-
-        # Market phase must remain in allowed set.
-        if self.use_market_filter:
-            mkt_phase = df[self.mkt_phase_col].iloc[i]
-            if not self._phase_ok(mkt_phase):
-                hold_ok = False
-
-        return not hold_ok
+        return EntryDecision(Side.FLAT)
 
 
-# ============================================================
-# Factory
-# ============================================================
-
-
-def build_entry_rule(rule_type: EntryRuleType, params: Optional[Mapping[str, Any]] = None) -> EntryRule:
-    params = params or {}
-
+def build_entry_rule(rule_type: EntryRuleType) -> EntryRule:
     if rule_type == EntryRuleType.A_TURTLE:
         return TurtleComboRule(donchian_window_20=20, donchian_window_55=55)
     if rule_type == EntryRuleType.A_20_PL:
-        return TurtleRule(rule_type, window=20, pl_filter=True)
+        # legacy: same as Donchian20; PL filter is now a global filter option
+        return TurtleRule(rule_type, window=20, bypass_pl=False)
     if rule_type == EntryRuleType.A_55:
-        return TurtleRule(rule_type, window=55, pl_filter=False)
+        return TurtleRule(rule_type, window=55, bypass_pl=True)
+    if rule_type == EntryRuleType.B_EMA_CROSS_DC10:
+        # Strategy B: base Donchian(10) entry, with Donchian(20) override that bypasses Filter A.
+        return EmaCrossDonchianRule(ema_fast="ema5", ema_mid="ema20", donchian_window=10, donchian_override_window=20)
 
-    if rule_type == EntryRuleType.B_SLOPE20:
-        return RegressionRule()
-    if rule_type == EntryRuleType.BA_REGIME20:
-        return BARegimeRule(r2_thr=float(params.get("r2_thr", 0.6)))
-    if rule_type == EntryRuleType.BB_CROSS20_R2PREV:
-        return BBCrossR2PrevRule(r2_thr=float(params.get("r2_thr", 0.6)))
-
-    if rule_type == EntryRuleType.C_TSMOM_CYCLE:
-        cycle_windows = params.get("cycle_windows", (5, 20, 40))
-        allowed_phases_long = params.get("allowed_phases_long", (6, 1, 2))
-        return TSMomCycleRule(
-            mom_window=int(params.get("mom_window", 63)),
-            enter_thr=float(params.get("enter_thr", 0.05)),
-            exit_thr=float(params.get("exit_thr", 0.0)),
-            cycle_windows=(int(cycle_windows[0]), int(cycle_windows[1]), int(cycle_windows[2])),
-            allowed_phases_long=tuple(int(x) for x in allowed_phases_long),
-            use_market_filter=bool(params.get("use_market_filter", True)),
-            market_prefix=str(params.get("market_prefix", "mkt")),
-        )
+    if rule_type == EntryRuleType.SHORT_EMA20_40_DEAD:
+        return ShortEma2040DeadCrossRule(ema_fast="ema20", ema_slow="ema40")
 
     raise ValueError(f"Unknown entry rule type: {rule_type}")
