@@ -15,7 +15,7 @@ if str(SRC_ROOT) not in sys.path:
 
 import pandas as pd
 
-from invest_v2.core.types import EntryRuleType, TrailingStopType, PyramidingType
+from invest_v2.core.types import EntryRuleType, TrailingStopType, PyramidingType, TradeMode
 from invest_v2.data_loader import load_ohlc_auto, load_market_csv
 from invest_v2.prep import add_indicators
 from invest_v2.backtest.engine import BacktestConfig, SingleSymbolBacktester
@@ -158,7 +158,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    enable_short = not bool(args.disable_short)
+    trade_mode = TradeMode.LONG_ONLY if bool(args.disable_short) else TradeMode.LONG_SHORT
 
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -186,7 +186,7 @@ def main() -> None:
         max_units_total=int(args.max_units_total),
         short_notional_limit=float(args.short_notional_limit),
         entry_rule=EntryRuleType(args.entry_rule),
-        enable_short=enable_short,
+        trade_mode=trade_mode,
 
         filter_pl=bool(args.filter_pl),
         filter_cycle=bool(args.filter_cycle),
@@ -211,9 +211,9 @@ def main() -> None:
     (outdir / "equity_curve.csv").write_text(res.equity_curve.to_csv(index=True), encoding="utf-8")
     (outdir / "trades.csv").write_text(res.trades.to_csv(index=False), encoding="utf-8")
     (outdir / "fills.csv").write_text(res.fills.to_csv(index=False), encoding="utf-8")
+    (outdir / "trader_report.txt").write_text(bt.trader.how_did_you_trade(max_lines=5000), encoding="utf-8")
     (outdir / "summary.json").write_text(json.dumps(res.summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    (outdir / "trader_report.txt").write_text(bt.trader.how_did_you_trade(max_trades=200), encoding="utf-8")
-    (outdir / "config.json").write_text(json.dumps(cfg.__dict__, ensure_ascii=False, indent=2), encoding="utf-8")
+    (outdir / "config.json").write_text(json.dumps(cfg.__dict__, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
     print("=== SUMMARY ===")
     print(json.dumps(res.summary, ensure_ascii=False, indent=2))

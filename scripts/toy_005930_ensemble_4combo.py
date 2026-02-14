@@ -388,7 +388,7 @@ def main() -> None:
         res.trades.to_csv(run_dir / "trades.csv", index=False)
         res.fills.to_csv(run_dir / "fills.csv", index=False)
         (run_dir / "summary.json").write_text(json.dumps(res.summary, indent=2, default=str), encoding="utf-8")
-        (run_dir / "trader_report.txt").write_text(bt.trader.how_did_you_trade(max_trades=200), encoding="utf-8")
+        (run_dir / "trader_report.txt").write_text(bt.trader.how_did_you_trade(max_lines=5000), encoding="utf-8")
 
         plot_df = base_df.copy().reset_index().rename(columns={"index": "date"})
         plot_df.to_csv(run_dir / "plot_data.csv", index=False)

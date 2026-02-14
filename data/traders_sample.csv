@@ -1,0 +1,4 @@
+trader_id,symbol,enabled,initial_capital,trade_mode,entry_rule,ts_type,pyramiding_type,max_units_per_symbol,one_trading_risk,priority
+T_SAMSUNG_TURTLE,005930,1,350000000,LONG_ONLY,A_TURTLE,TS.A,PRMD.B,4,0.01,10
+T_SAMSUNG_SHORT,005930,0,350000000,SHORT_ONLY,SHORT_EMA20_40_DEAD,TS.A,PRMD.A,2,0.01,5
+T_HYNIX_TURTLE,000660,1,350000000,LONG_ONLY,A_TURTLE,TS.A,PRMD.B,4,0.01,10

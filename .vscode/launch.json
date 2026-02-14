@@ -181,18 +181,148 @@
                                             "data/kospi200_20260212.csv",
                                             "--label-path",
                                             "outputs/pivotal point/kospi200_labels_expanded.csv",
-                                            "--label-col",
-                                            "label_20d_expanded",
                                             "--seq-length",
                                             "20",
                                             "--epochs",
                                             "50",
                                             "--batch-size",
                                             "64",
-                                            "--threshold-bottom",
-                                            "0.80",
-                                            "--threshold-top",
-                                            "0.80"
+                                            "--target-precision",
+                                            "0.30"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "AI: Pivot Point Voting (KOSPI200)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_pivot_point_voting.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--data-path",
+                                            "data/kospi200_20260212.csv",
+                                            "--label-path",
+                                            "outputs/pivotal point/kospi200_labels_expanded.csv",
+                                            "--seq-length",
+                                            "20",
+                                            "--epochs",
+                                            "50",
+                                            "--batch-size",
+                                            "64",
+                                            "--target-precision",
+                                            "0.30",
+                                            "--voting",
+                                            "and"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "AI: Pivot Point Stage2 (KOSPI200)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_pivot_point_stage2.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--data-path",
+                                            "data/kospi200_20260212.csv",
+                                            "--label-path",
+                                            "outputs/pivotal point/kospi200_labels_expanded.csv",
+                                            "--seq-length",
+                                            "20",
+                                            "--epochs",
+                                            "50",
+                                            "--batch-size",
+                                            "64",
+                                            "--target-precision",
+                                            "0.30"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "AI: Pivot Point Stage3 (KOSPI200)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_pivot_point_stage3.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--data-path",
+                                            "data/kospi200_20260212.csv",
+                                            "--label-path",
+                                            "outputs/pivotal point/kospi200_labels_expanded.csv",
+                                            "--seq-length",
+                                            "60",
+                                            "--epochs",
+                                            "60",
+                                            "--batch-size",
+                                            "64",
+                                            "--target-precision",
+                                            "0.30"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Backtest: Trader Master From Config",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/run_trader_master_from_config.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--trader-config",
+                                            "data/traders_sample.csv",
+                                            "--market-csv",
+                                            "data/kospi200_20260212.csv",
+                                            "--out-dir",
+                                            "outputs/trader_master_from_config"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "AI: Pivot Point Stage4 (Multi-Ticker)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_pivot_point_stage4.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--panel-csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--symbols",
+                                            "005930,000660,005380,051910,105560",
+                                            "--seq-length",
+                                            "60",
+                                            "--label-order",
+                                            "10",
+                                            "--label-expand",
+                                            "1",
+                                            "--epochs",
+                                            "20",
+                                            "--batch-size",
+                                            "128",
+                                            "--runs",
+                                            "3",
+                                            "--target-precision",
+                                            "0.30"
                                         ],
                                "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
                            }

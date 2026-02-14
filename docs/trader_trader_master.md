@@ -1,86 +1,98 @@
-# Trader / TraderMaster 설계 (v2 디버깅 & 가시성 강화)
+# Trader / TraderMaster 아키텍처
 
-## 1. 배경: "고스트 타점"(ghost entry) 문제
+이 문서는 v2 시스템을 **트레이더(종목/전략 단위) + 트레이더 마스터(계좌/자본 배분 단위)**로 확장하기 위한 코드 구조와 동작을 정리합니다.
 
-피라미딩(불타기)을 사용하는 추세추종 전략에서는 **최초 진입 가격**과 **포지션의 평균단가(수량가중 평균)** 가 서로 다른 것이 정상입니다.
+## 목표
 
-그런데 백테스트/리포트가 다음처럼 기록되면 문제가 발생합니다.
+1. **종목/섹터별 최적 전략을 독립적으로 튜닝**할 수 있도록, “포지션 상태(pos_*) + 전략 규칙”을 종목 단위 객체(Trader)로 캡슐화한다.
+2. **자본 배분 문제(최적화)의 외부화를 위한 스캐폴딩**을 제공한다.
+   - 예: 전자 업종 트레이더, 내수 서비스 트레이더, 레버리지/인버스 ETF 트레이더 등
+3. 보고/시각화/디버깅 편의성 개선
+   - “고스트 타점” (피라미딩으로 인해 entry_price가 평균단가로 덮이는 문제) 제거
+   - 트레이더에게 “어떻게 거래했니?”를 물었을 때, **Fill(체결) 로그 + Trade(요약)**를 재현 가능하게 출력
 
-- `entry_date`는 **최초 진입일**로 유지
-- `entry_price`는 피라미딩이 끝난 뒤 **최종 평균단가**로 덮어쓰기
+## 개념
 
-이 경우, 차트에서는 `entry_date` 시점의 캔들(OHLC) 고가보다 높은 곳에 진입 마커가 찍히는 **"허공 진입"** 이 발생합니다.
+### Trader
 
-중요: 이는 보통 **데이터 오류가 아니라 리포팅(로그 스키마) 불일치**입니다.
+- **하나의 종목(symbol)**을 특정 전략/규칙으로 운영하는 개별 운영자
+- 책임 범위
+  - 포지션 상태 보유: `pos_side, pos_shares, pos_units, pos_avg_price, pos_h_max, pos_l_min, pos_ts_active, pos_even_armed, ...`
+  - T일 종가 기준 신호 평가 → T+1 시가 시장가 체결(스케줄링)
+  - TS/손절/even-stop/emergency stop/피라미딩 등 **포지션 관리 로직**
+  - 체결(Fill) 로그 기록 및 트레이드(Trade) 요약 생성
 
----
+### TraderMaster
 
-## 2. 목표
+- **계좌(또는 계좌 내 슬리브)**를 관리하고, 트레이더들에게 자본/제약을 배분하는 상위 관리자
+- 현재 구현에서는 단순화를 위해 **트레이더 1개 = 슬리브 계좌 1개(Account)** 구조
+- 책임 범위
+  - 계좌 현금흐름 처리: long buy/sell, short sell/cover, CMA↔trading cash 이동
+  - 포트폴리오-wide 제약
+    - 시스템 총 unit 제한 (기본 10)
+    - 동일 종목 동시 포지션 금지(기본: symbol exclusivity)
 
-1. 포지션을 합쳐서 관리(평균단가/총수량/유닛 수)하면서도,
-2. 주문/체결 단위(각 피라미딩 체결)의 가격/날짜를 잃지 않고,
-3. 사람이 디버깅 가능한 형태로 리포트/플롯(abc.html)에서 정확히 보이도록 한다.
+## 핵심 변경점
 
----
+### 1) Trade 레코드의 “첫 진입가”와 “평단가” 분리
 
-## 3. 핵심 컨셉
+피라미딩이 들어가는 추세추종에서는 다음 두 값이 다릅니다.
 
-### 3.1 Trader (심볼 단위 포지션 매니저)
+- 첫 진입가: 차트 상에서 의미 있는 최초 체결가
+- 평균단가: 피라미딩 포함 최종 평단가(실제 PnL 계산에 사용)
 
-`Trader`는 **단일 종목(symbol)** 의 포지션 라이프사이클을 관리합니다.
+따라서 `Trade`는 아래 필드를 가집니다.
 
-- ENTRY / PYRAMID / EXIT 체결을 **lot(체결 단위)로 누적**
-- `first_entry_date`, `first_entry_price`는 절대 변경하지 않음
-- `avg_entry_price`는 lot 기반으로 계산 (피라미딩 시 변동)
-- `fills`(체결 이벤트 로그) + `trades`(포지션 단위 요약 로그) 생성
+- `entry_date`, `entry_price`: **첫 진입**
+- `avg_entry_price`, `entry_notional_gross`, `num_entries`: **피라미딩 포함 집계**
 
-또한 디버깅을 위해 `Trader.how_did_you_trade()` 를 제공하여 사람이 읽을 수 있는 텍스트 로그를 뽑을 수 있습니다.
+이로 인해 보고서(abc.html)에서 과거 “차트 허공에 찍히던 진입 마커” 문제가 제거됩니다.
 
-### 3.2 TraderMaster (계좌/트레이더 오케스트레이션)
+### 2) fills.csv 도입
 
-`TraderMaster`는 계좌(원화/달러/CMA 등)와 여러 Trader를 소유하는 상위 컨테이너입니다.
+모든 ENTRY/PYRAMID/EXIT를 체결 단위로 기록합니다.
 
-현재 v2 toy 백테스트에서는:
+- 차트는 **trades.csv 기반이 아니라 fills.csv 기반**으로 마커를 찍을 수 있습니다.
+- 피라미딩을 했을 때도, 각 피라미딩 체결 지점이 그대로 표시됩니다.
 
-- 단일 KRW 계좌(`Account`)를 사용
-- 심볼별 `Trader`를 생성/제공
+## 실행 방법
 
-향후 라이브 트레이딩에서 **브로커 계좌 조회값과 내부 장부의 reconcile** 기능을 이 계층에 확장하는 것이 자연스럽습니다.
+### 단일 종목(기존 호환)
 
----
+기존과 동일하게 `SingleSymbolBacktester`로 실행합니다.
 
-## 4. 로그/산출물 스키마
+- 출력에 `fills.csv`가 추가됩니다.
+- abc.html은 `fills.csv`를 자동 감지하여 시각화를 개선합니다.
 
-### 4.1 `trades.csv` (포지션 단위)
+### 다중 트레이더(포트폴리오)
 
-한 포지션(진입~전량청산)을 1행으로 기록합니다.
+트레이더 설정을 CSV/XLSX로 정의하고, 한 번에 실행합니다.
 
-필드(핵심):
+```bash
+python scripts/run_trader_master_from_config.py \
+  --csv data/krx100_adj_5000.csv \
+  --trader-config data/traders.xlsx \
+  --sheet Sheet1 \
+  --out-dir runs/portfolio_test
+```
 
-- `entry_date`, `entry_price`: **최초 진입일/가격** (차트 마커 기준)
-- `avg_entry_price`: 피라미딩 포함 **최종 평균단가**
-- `num_entries`: ENTRY + PYRAMID 체결 횟수
-- `shares`, `exit_date`, `exit_price`, `realized_pnl`, `exit_reason`
+#### trader-config 스키마(최소)
 
-### 4.2 `fills.csv` (체결 이벤트 단위)
+필수 컬럼:
+- `trader_id`
+- `symbol`
 
-각 체결(ENTRY/PYRAMID/EXIT)을 날짜/가격/수량으로 기록합니다.
+선택 컬럼:
+- `trade_mode` (LONG_ONLY / SHORT_ONLY / LONG_SHORT)
+- `entry_rule`, `entry_rule_long`, `entry_rule_short`
+- `ts_type`, `pyramiding_type`
+- `initial_capital`, `max_units_per_symbol`, `one_trading_risk`, `short_notional_limit` 등
 
-- `action ∈ {ENTRY, PYRAMID, EXIT}`
-- `date`, `price`, `shares`, `reason`
-- `avg_entry_price_after`, `pos_units_after` 등 상태 스냅샷 포함
+## 향후 확장 방향
 
-### 4.3 `trader_report.txt`
+- **섹터별 최적화**: 섹터마다 트레이더를 따로 두고 `entry_rule/TS/피라미딩` 등을 다르게 튜닝
+- **상품별 운용 제약**: 예) 레버리지/인버스 ETF는 최대 1 unit 등
+- **TraderMaster 최적화 문제**
+  - 목적함수: 전체 NAV CAGR 최대화, MDD/리스크 제약 포함
+  - 의사결정변수: 트레이더별 배정 자본, max units, 우선순위(priority), 동시 보유 허용/금지 규칙 등
 
-`Trader.how_did_you_trade()` 결과를 저장한 텍스트 로그입니다.
-
----
-
-## 5. abc.html(Plotly) 가시성 정책
-
-`abc.html`은 다음 우선순위를 사용합니다.
-
-1. `fills.csv`가 있으면 **fills 기반으로 entry/pyramiding/exit 마커를 표시** (가장 정확)
-2. 없으면 `trades.csv`/`equity_curve.csv` 기반의 레거시 방식(유닛 diff)으로 표시
-
-이로써 피라미딩 평균단가가 최초 진입일에 찍히는 문제를 구조적으로 방지합니다.

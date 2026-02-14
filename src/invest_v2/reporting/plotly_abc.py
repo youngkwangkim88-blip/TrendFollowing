@@ -59,13 +59,20 @@ def write_interactive_abc(
     title: str = "Trend Following Analysis",
     show_donchian: bool = False,
 ) -> Path:
-    """A/B/C 패널을 생성하며, 매수/매도 진입/청산 및 피라미딩 마커를 표시합니다."""
+    """A/B/C 패널을 생성하며, 진입/청산 및 피라미딩 마커를 표시합니다.
+
+    Priority of data sources
+    ------------------------
+    - If `fills_csv` exists: use it for *all* markers (ENTRY / PYRAMID / EXIT).
+      This avoids the classic pyramiding "ghost entry" artifact.
+    - Else fallback to `trades_csv` for entry/exit and `equity_curve.pos_units` diff for pyramiding.
+    """
 
     plot_df = _read_csv_with_date_index(plot_data_csv)
     eq_df = _read_csv_with_date_index(equity_curve_csv)
 
-    # OHLC 컬럼 확인
-    required_cols = {'O': 'open', 'H': 'high', 'L': 'low', 'C': 'close'}
+    # OHLC column normalization
+    required_cols = {"O": "open", "H": "high", "L": "low", "C": "close"}
     for target, fallback in required_cols.items():
         if target not in plot_df.columns:
             if fallback in plot_df.columns:
@@ -80,25 +87,33 @@ def write_interactive_abc(
     nav = eq_df[nav_col].astype(float)
 
     fig = make_subplots(
-        rows=3, cols=1,
+        rows=3,
+        cols=1,
         shared_xaxes=True,
         vertical_spacing=0.05,
         row_heights=[0.55, 0.25, 0.20],
-        subplot_titles=("Plot A: Candlestick & Trading Signals", "Plot B: Equity Curve", "Plot C: Phases")
+        subplot_titles=("Plot A: Candlestick & Trading Signals", "Plot B: Equity Curve", "Plot C: Phases"),
     )
 
     # --- Plot A: Candlestick ---
     fig.add_trace(
         go.Candlestick(
-            x=plot_df.index, open=plot_df['O'], high=plot_df['H'], low=plot_df['L'], close=plot_df['C'],
+            x=plot_df.index,
+            open=plot_df["O"],
+            high=plot_df["H"],
+            low=plot_df["L"],
+            close=plot_df["C"],
             name="Candlestick",
-            increasing_line_color='#FF0000', decreasing_line_color='#0000FF',
-            legendgroup="group1", legendgrouptitle_text="Plot A: Price"
+            increasing_line_color="#FF0000",
+            decreasing_line_color="#0000FF",
+            legendgroup="group1",
+            legendgrouptitle_text="Plot A: Price",
         ),
-        row=1, col=1
+        row=1,
+        col=1,
     )
 
-    # EMA Lines
+    # EMA lines
     for ema_col, name in (("ema5", "EMA5"), ("ema20", "EMA20"), ("ema40", "EMA40")):
         if ema_col in plot_df.columns:
             fig.add_trace(
@@ -111,89 +126,88 @@ def write_interactive_abc(
                     opacity=0.7,
                     legendgroup="group1",
                 ),
-                row=1, col=1
+                row=1,
+                col=1,
             )
 
-    # --- Trading Signals (Plot A) ---
-    # Prefer lot-level fills when available (fixes "ghost entry" issue).
-    if fills_csv is None and trades_csv is not None:
-        cand = Path(trades_csv).with_name("fills.csv")
-        if cand.exists():
-            fills_csv = cand
+    # --- Trading markers ---
+    fills_path: Optional[Path] = None
+    if fills_csv is not None and Path(fills_csv).exists():
+        fills_path = Path(fills_csv)
+    elif trades_csv is not None and Path(trades_csv).exists():
+        maybe = Path(trades_csv).with_name("fills.csv")
+        if maybe.exists():
+            fills_path = maybe
 
-    fills_df: Optional[pd.DataFrame] = None
-    if fills_csv and Path(fills_csv).exists():
-        fills_df = pd.read_csv(fills_csv)
-        if "date" in fills_df.columns:
-            fills_df["date"] = pd.to_datetime(fills_df["date"], errors="coerce")
-        if "side" in fills_df.columns:
-            fills_df["side"] = fills_df["side"].astype(int)
-        if "action" in fills_df.columns:
-            fills_df["action"] = fills_df["action"].fillna("").astype(str).str.upper()
-        if "reason" in fills_df.columns:
-            fills_df["reason"] = fills_df["reason"].fillna("").astype(str)
+    if fills_path is not None:
+        fdf = pd.read_csv(fills_path)
+        if "fill_date" in fdf.columns:
+            fdf["fill_date"] = pd.to_datetime(fdf["fill_date"])
+        if "side" in fdf.columns:
+            fdf["side"] = fdf["side"].astype(int)
+        if "fill_price" in fdf.columns:
+            fdf["fill_price"] = fdf["fill_price"].astype(float)
+        if "fill_type" not in fdf.columns:
+            fdf["fill_type"] = ""
+        if "reason" not in fdf.columns:
+            fdf["reason"] = ""
 
-    if fills_df is not None and len(fills_df):
-        # ENTRY markers
-        ent = fills_df[fills_df["action"] == "ENTRY"].copy()
+        # Entries
+        ent = fdf[fdf["fill_type"].astype(str).str.upper() == "ENTRY"].copy()
         if len(ent):
             long_e = ent[ent["side"] == 1]
             short_e = ent[ent["side"] == -1]
             fig.add_trace(
                 go.Scatter(
-                    x=long_e["date"],
-                    y=long_e["price"],
+                    x=long_e["fill_date"],
+                    y=long_e["fill_price"],
                     mode="markers",
                     name="Long Entry",
                     marker=dict(symbol="triangle-up", size=12, color="#2ecc71", line=dict(width=1, color="black")),
-                    hovertext=long_e.apply(lambda r: f"LONG Entry<br>Reason: {r.get('reason','')}<br>Price: {float(r['price']):,.2f}<br>Shares: {int(r['shares'])}", axis=1),
-                    hoverinfo="text",
                     legendgroup="group1",
+                    hovertext=long_e.apply(lambda r: f"ENTRY(LONG)<br>{r.get('reason','')}<br>px={float(r['fill_price']):,.2f}", axis=1),
+                    hoverinfo="text",
                 ),
                 row=1,
                 col=1,
             )
             fig.add_trace(
                 go.Scatter(
-                    x=short_e["date"],
-                    y=short_e["price"],
+                    x=short_e["fill_date"],
+                    y=short_e["fill_price"],
                     mode="markers",
                     name="Short Entry",
                     marker=dict(symbol="triangle-down", size=12, color="#e67e22", line=dict(width=1, color="black")),
-                    hovertext=short_e.apply(lambda r: f"SHORT Entry<br>Reason: {r.get('reason','')}<br>Price: {float(r['price']):,.2f}<br>Shares: {int(r['shares'])}", axis=1),
-                    hoverinfo="text",
                     legendgroup="group1",
+                    hovertext=short_e.apply(lambda r: f"ENTRY(SHORT)<br>{r.get('reason','')}<br>px={float(r['fill_price']):,.2f}", axis=1),
+                    hoverinfo="text",
                 ),
                 row=1,
                 col=1,
             )
 
-        # PYRAMID markers
-        pyr = fills_df[fills_df["action"].isin(["PYRAMID", "ADD"])].copy()
+        # Pyramiding
+        pyr = fdf[fdf["fill_type"].astype(str).str.upper() == "PYRAMID"].copy()
         if len(pyr):
             fig.add_trace(
                 go.Scatter(
-                    x=pyr["date"],
-                    y=pyr["price"],
+                    x=pyr["fill_date"],
+                    y=pyr["fill_price"],
                     mode="markers",
                     name="Pyramiding",
                     marker=dict(symbol="diamond", size=10, color="#3498db", line=dict(width=1, color="white")),
-                    hovertext=pyr.apply(
-                        lambda r: f"Pyramiding<br>Reason: {r.get('reason','')}<br>Price: {float(r['price']):,.2f}<br>Shares: {int(r['shares'])}<br>Units after: {int(r.get('pos_units_after',0))}",
-                        axis=1,
-                    ),
-                    hoverinfo="text",
                     legendgroup="group1",
+                    hovertext=pyr.apply(lambda r: f"PYRAMID<br>{r.get('reason','')}<br>px={float(r['fill_price']):,.2f}", axis=1),
+                    hoverinfo="text",
                 ),
                 row=1,
                 col=1,
             )
 
-        # EXIT markers (color-coded by reason)
-        ex = fills_df[fills_df["action"] == "EXIT"].copy()
+        # Exits (color by exit category)
+        ex = fdf[fdf["fill_type"].astype(str).str.upper() == "EXIT"].copy()
         if len(ex):
-            ex["exit_reason"] = ex.get("reason", "").fillna("").astype(str)
-            ex["exit_cat"] = ex["exit_reason"].map(_classify_exit_reason)
+            ex["exit_cat"] = ex["reason"].astype(str).map(_classify_exit_reason)
 
             color_map = {
                 "STOP_LOSS": "#e74c3c",
@@ -208,6 +222,7 @@ def write_interactive_abc(
                 "EXIT(UNKNOWN)": "#95a5a6",
                 "EXIT(OTHER)": "#95a5a6",
             }
+
             cat_order = [
                 "STOP_LOSS",
                 "TS_A",
@@ -222,18 +237,8 @@ def write_interactive_abc(
                 "EXIT(UNKNOWN)",
             ]
 
-            def _side_name(v: int) -> str:
-                if int(v) == 1:
-                    return "LONG"
-                if int(v) == -1:
-                    return "SHORT"
-                return "?"
-
             ex["hover"] = ex.apply(
-                lambda r: f"{_side_name(int(r.get('side',0)))} Exit<br>"
-                          f"Reason: {str(r.get('exit_reason',''))}<br>"
-                          f"Price: {float(r['price']):,.2f}",
-                axis=1,
+                lambda r: f"EXIT<br>Reason: {str(r.get('reason',''))}<br>px={float(r['fill_price']):,.2f}", axis=1
             )
 
             for cat in cat_order:
@@ -242,8 +247,8 @@ def write_interactive_abc(
                     continue
                 fig.add_trace(
                     go.Scatter(
-                        x=sub["date"],
-                        y=sub["price"],
+                        x=sub["fill_date"],
+                        y=sub["fill_price"],
                         mode="markers",
                         name=f"Exit: {cat}",
                         marker=dict(symbol="x", size=9, color=color_map.get(cat, "#95a5a6"), line=dict(width=1, color="black")),
@@ -256,26 +261,19 @@ def write_interactive_abc(
                 )
 
     elif trades_csv and Path(trades_csv).exists():
-        # Fallback: trade-level markers (no lot detail)
+        # Fallback legacy plotting from trades.csv
         tr = pd.read_csv(trades_csv)
         for dc in ("entry_date", "exit_date"):
             if dc in tr.columns:
-                tr[dc] = pd.to_datetime(tr[dc], errors="coerce")
+                tr[dc] = pd.to_datetime(tr[dc])
 
-        # 1 & 2. Long/Short Entry
         if {"entry_date", "entry_price", "side"}.issubset(tr.columns):
-            # If the file contains an explicit first-entry column, prefer it.
-            px_col = "entry_price"
-            for cand in ("first_entry_price", "entry_price_first"):
-                if cand in tr.columns:
-                    px_col = cand
-                    break
             long_e = tr[tr["side"].astype(int) == 1]
             short_e = tr[tr["side"].astype(int) == -1]
             fig.add_trace(
                 go.Scatter(
                     x=long_e["entry_date"],
-                    y=long_e[px_col],
+                    y=long_e["entry_price"],
                     mode="markers",
                     name="Long Entry",
                     marker=dict(symbol="triangle-up", size=12, color="#2ecc71", line=dict(width=1, color="black")),
@@ -287,7 +285,7 @@ def write_interactive_abc(
             fig.add_trace(
                 go.Scatter(
                     x=short_e["entry_date"],
-                    y=short_e[px_col],
+                    y=short_e["entry_price"],
                     mode="markers",
                     name="Short Entry",
                     marker=dict(symbol="triangle-down", size=12, color="#e67e22", line=dict(width=1, color="black")),
@@ -297,7 +295,6 @@ def write_interactive_abc(
                 col=1,
             )
 
-        # 3 & 4. Exit markers (color-coded by stop/exit reason)
         if {"exit_date", "exit_price"}.issubset(tr.columns):
             ex = tr.dropna(subset=["exit_date", "exit_price"]).copy()
             if "exit_reason" not in ex.columns:
@@ -346,9 +343,7 @@ def write_interactive_abc(
                 return "?"
 
             ex["hover"] = ex.apply(
-                lambda r: f"{_side_name(int(r['side']))} Exit<br>"
-                          f"Reason: {str(r['exit_reason'])}<br>"
-                          f"Price: {float(r['exit_price']):,.2f}",
+                lambda r: f"{_side_name(int(r['side']))} Exit<br>Reason: {str(r['exit_reason'])}<br>Price: {float(r['exit_price']):,.2f}",
                 axis=1,
             )
 
@@ -362,12 +357,7 @@ def write_interactive_abc(
                         y=sub["exit_price"],
                         mode="markers",
                         name=f"Exit: {cat}",
-                        marker=dict(
-                            symbol="x",
-                            size=9,
-                            color=color_map.get(cat, "#95a5a6"),
-                            line=dict(width=1, color="black"),
-                        ),
+                        marker=dict(symbol="x", size=9, color=color_map.get(cat, "#95a5a6"), line=dict(width=1, color="black")),
                         hovertext=sub["hover"],
                         hoverinfo="text",
                         legendgroup="group1",
@@ -376,44 +366,58 @@ def write_interactive_abc(
                     col=1,
                 )
 
-
-    # 5. Pyramiding markers are preferably plotted from fills.csv.
-    # If fills are unavailable, keep the legacy (pos_units diff) fallback.
-    if (fills_df is None or len(fills_df) == 0) and "pos_units" in eq_df.columns:
-        pu = eq_df["pos_units"].astype(float)
-        inc = (pu.diff() > 0.0) & (pu > 1.0)
-        if inc.any():
-            prmd_dates = pu.index[inc.fillna(False)]
-            prmd_prices = plot_df["C"].reindex(prmd_dates).astype(float)
-            fig.add_trace(
-                go.Scatter(
-                    x=prmd_dates,
-                    y=prmd_prices,
-                    mode="markers",
-                    name="Pyramiding",
-                    marker=dict(symbol="diamond", size=10, color="#3498db", line=dict(width=1, color="white")),
-                    legendgroup="group1",
-                ),
-                row=1,
-                col=1,
-            )
+        # Pyramiding fallback (pos_units diff)
+        if "pos_units" in eq_df.columns:
+            pu = eq_df["pos_units"].astype(float)
+            inc = (pu.diff() > 0.0) & (pu > 1.0)
+            if inc.any():
+                prmd_dates = pu.index[inc.fillna(False)]
+                prmd_prices = plot_df["C"].reindex(prmd_dates).astype(float)
+                fig.add_trace(
+                    go.Scatter(
+                        x=prmd_dates,
+                        y=prmd_prices,
+                        mode="markers",
+                        name="Pyramiding",
+                        marker=dict(symbol="diamond", size=10, color="#3498db", line=dict(width=1, color="white")),
+                        legendgroup="group1",
+                    ),
+                    row=1,
+                    col=1,
+                )
 
     # --- Plot B: Equity ---
     fig.add_trace(
-        go.Scatter(x=nav.index, y=nav, mode="lines", name="Equity NAV", 
-                   line=dict(color="#2c3e50"), legendgroup="group2", legendgrouptitle_text="Plot B: Account"),
-        row=2, col=1
+        go.Scatter(
+            x=nav.index,
+            y=nav,
+            mode="lines",
+            name="Equity NAV",
+            line=dict(color="#2c3e50"),
+            legendgroup="group2",
+            legendgrouptitle_text="Plot B: Account",
+        ),
+        row=2,
+        col=1,
     )
 
     # --- Plot C: Phases ---
     if "cycle_phase" in plot_df.columns:
         fig.add_trace(
-            go.Scatter(x=plot_df.index, y=plot_df["cycle_phase"], mode="lines", name="Cycle Phase",
-                       line=dict(dash="dot", color="#8e44ad"), legendgroup="group3", legendgrouptitle_text="Plot C: Market"),
-            row=3, col=1
+            go.Scatter(
+                x=plot_df.index,
+                y=plot_df["cycle_phase"],
+                mode="lines",
+                name="Cycle Phase",
+                line=dict(dash="dot", color="#8e44ad"),
+                legendgroup="group3",
+                legendgrouptitle_text="Plot C: Market",
+            ),
+            row=3,
+            col=1,
         )
 
-    # 레이아웃 설정
+    # layout
     fig.update_layout(
         title=title,
         height=1000,
@@ -425,7 +429,7 @@ def write_interactive_abc(
     )
 
     fig.update_xaxes(showspikes=True, spikemode="across", spikesnap="cursor", showline=True)
-    
+
     out = Path(out_html)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(str(out), include_plotlyjs="cdn")

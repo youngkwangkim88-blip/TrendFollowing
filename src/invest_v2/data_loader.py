@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 
 import pandas as pd
 
@@ -131,3 +131,67 @@ def load_market_csv(csv_path: str, symbol: Optional[str] = None) -> pd.DataFrame
     """
     m = load_ohlc_auto(csv_path, symbol=symbol)
     return m
+
+
+def load_ohlc_panel_symbols(csv_path: str, symbols: List[str], ticker_col: str = "ticker") -> Dict[str, pd.DataFrame]:
+    """Load multiple symbols from a KRX-style panel CSV in one pass.
+
+    Parameters
+    ----------
+    csv_path:
+        Panel CSV path (e.g., data/krx100_adj_5000.csv)
+    symbols:
+        List of tickers (6-digit strings or ints)
+
+    Returns
+    -------
+    dict[symbol] -> OHLC dataframe (date-indexed)
+
+    Notes
+    -----
+    - This is more efficient than calling `load_ohlc_auto` repeatedly for many traders.
+    - It assumes the KRX panel schema (columns like 날짜,ticker,O,H,L,C,(V)).
+    """
+
+    sym_set = {str(s).zfill(6) for s in symbols}
+
+    # read minimal columns when available
+    usecols = None
+    try:
+        # include volume if present
+        usecols = ["날짜", ticker_col, "O", "H", "L", "C", "V"]
+    except Exception:
+        usecols = None
+
+    df = pd.read_csv(Path(csv_path), dtype={ticker_col: str}, low_memory=False, usecols=lambda c: True if usecols is None else c in usecols)
+
+    # schema check
+    if "날짜" not in df.columns or ticker_col not in df.columns:
+        raise ValueError(f"load_ohlc_panel_symbols expects KRX panel schema with '날짜' and '{ticker_col}'. Columns={list(df.columns)}")
+
+    df[ticker_col] = df[ticker_col].astype(str).str.zfill(6)
+    df = df[df[ticker_col].isin(sym_set)].copy()
+    if df.empty:
+        raise ValueError(f"No rows found for symbols={sorted(sym_set)} in panel CSV: {csv_path}")
+
+    # normalize
+    df = df.rename(columns={"날짜": "date", "O": "open", "H": "high", "L": "low", "C": "close"})
+    if "V" in df.columns:
+        df = df.rename(columns={"V": "volume"})
+
+    df["date"] = pd.to_datetime(df["date"])
+    out: Dict[str, pd.DataFrame] = {}
+    for sym, g in df.groupby(ticker_col):
+        g = g.sort_values("date")
+        cols = ["date", "open", "high", "low", "close"] + (["volume"] if "volume" in g.columns else [])
+        gg = g[cols].copy()
+        gg = gg.set_index("date")
+        gg = sanitize_ohlc(gg)
+        out[str(sym)] = gg
+
+    # ensure all requested symbols exist
+    missing = [s for s in sym_set if s not in out]
+    if missing:
+        raise ValueError(f"Missing symbols in panel CSV: {missing}")
+
+    return out
