@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
+    "lightgbm>=4.6.0",
     "matlabengine>=25.2.2",
     "numpy<2.0",
     "pandas>=2.3.3",
@@ -14,7 +15,9 @@ dependencies = [
     "pydantic-settings>=2.12.0",
     "pykrx==1.2.3",
     "python-dotenv>=1.2.1",
+    "scikit-learn>=1.7.2",
     "setuptools<82",
+    "tensorflow-intel>=2.16.0 ; platform_machine == 'AMD64' and sys_platform == 'win32'",
     "tenacity>=9.1.4",
     "tqdm>=4.67.3",
 ]
@@ -32,3 +35,6 @@ research = [
     "jupyterlab>=4.5.4",
     "matplotlib>=3.10.8",
 ]
+
+[tool.uv]
+required-environments = ["sys_platform == 'win32' and platform_machine == 'AMD64'"]

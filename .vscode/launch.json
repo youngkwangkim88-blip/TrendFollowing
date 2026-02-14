@@ -147,6 +147,54 @@
                                             "outputs/pivotal point/pivot_point_labels_kospi200.html"
                                         ],
                                "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "ML: Pivot Point (KOSPI200)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/ML_pivot_point.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--data-path",
+                                            "data/kospi200_20260212.csv",
+                                            "--label-path",
+                                            "outputs/pivotal point/pivot_point_labels_kospi200.csv"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "AI: Pivot Point (KOSPI200 LSTM)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_pivot_point.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "--data-path",
+                                            "data/kospi200_20260212.csv",
+                                            "--label-path",
+                                            "outputs/pivotal point/kospi200_labels_expanded.csv",
+                                            "--label-col",
+                                            "label_20d_expanded",
+                                            "--seq-length",
+                                            "20",
+                                            "--epochs",
+                                            "50",
+                                            "--batch-size",
+                                            "64",
+                                            "--threshold-bottom",
+                                            "0.80",
+                                            "--threshold-top",
+                                            "0.80"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
                            }
                        ]
 }

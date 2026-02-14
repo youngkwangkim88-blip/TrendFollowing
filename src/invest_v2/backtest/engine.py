@@ -6,11 +6,11 @@ from typing import Optional, List, Dict, Any, Tuple
 import numpy as np
 import pandas as pd
 
-from invest_v2.core.types import EntryRuleType, Side, Order, Trade, TrailingStopType, PyramidingType, TradeMode
+from invest_v2.core.types import EntryRuleType, Side, Order, TrailingStopType, PyramidingType, TradeMode
 from invest_v2.strategy.entry_rules import build_entry_rule, EntryContext
 from invest_v2.indicators.ma_cycle import cycle_allows
 from invest_v2.utils.krx_ticks import tick_down, tick_up
-from invest_v2.backtest.accounting import Account
+from invest_v2.trading.trader_master import TraderMaster
 
 
 @dataclass
@@ -81,6 +81,7 @@ class BacktestConfig:
 class BacktestResult:
     equity_curve: pd.DataFrame
     trades: pd.DataFrame
+    fills: pd.DataFrame
     summary: Dict[str, Any]
 
 
@@ -108,7 +109,11 @@ class SingleSymbolBacktester:
         self.consecutive_losses: int = 0
         self.minpos_first_pyramid_pending: bool = False
 
-        self.account = Account(cash_cma=float(cfg.initial_capital))
+        # --- Account & trader layer ---
+        # TraderMaster owns the account ledger and per-symbol Trader(s).
+        self.master = TraderMaster(initial_capital_krw=float(cfg.initial_capital))
+        self.account = self.master.account
+        self.trader = self.master.get_trader(cfg.symbol)
 
         # Unit sizing capital base (rebased annually at year boundary)
         self.unit_capital_base: float = float(cfg.initial_capital)
@@ -138,10 +143,10 @@ class SingleSymbolBacktester:
         # orders
         self.pending_entry_order: Optional[Order] = None
         self.pending_exit_reason: Optional[str] = None
-        self.active_trade: Optional[Trade] = None
 
         self.snapshots: List[Dict[str, Any]] = []
-        self.trade_logs: List[Dict[str, Any]] = []
+        # Closed trade summaries are stored in Trader (self.trader.trades).
+
 
     # -------------------- helpers --------------------
     def _mode_allows(self, side: Side) -> bool:
@@ -162,9 +167,11 @@ class SingleSymbolBacktester:
         return float(self.pos_shares) * float(close_price) if self.pos_side == Side.SHORT else 0.0
 
     def _short_notional_basis(self) -> float:
+        # Notional basis for short limits / interest should be based on the
+        # executed short-sell prices (lot-level).
         if self.pos_side != Side.SHORT or self.pos_shares <= 0:
             return 0.0
-        return float(self.short_basis_price) * float(self.pos_shares)
+        return float(self.trader.entry_notional_gross)
 
     def _compute_unit_shares(self, M: float, atr10: float) -> int:
         if atr10 <= 0 or np.isnan(atr10):
@@ -371,40 +378,31 @@ class SingleSymbolBacktester:
         return f"STOP_{fill_type}"
 
     def _exit_position_full(self, date: str, exit_price: float, reason: str) -> None:
-        shares = int(self.pos_shares)
-        if shares <= 0 or self.active_trade is None:
+        # NOTE: realized PnL must be computed from the actual executed entry lots.
+        # Do NOT use a single entry_price field that gets overwritten by pyramiding.
+        side = self.pos_side
+        if side == Side.FLAT:
             return
 
-        if self.pos_side == Side.LONG:
-            entry_cost = self.active_trade.entry_price * shares
-            exit_net = exit_price * shares * (1.0 - self.cfg.sell_cost_rate)
-            realized = exit_net - entry_cost
-            self.account.long_sell(exit_price, shares, sell_cost_rate=self.cfg.sell_cost_rate)
+        trade_row = self.trader.on_exit_fill(
+            date=str(date),
+            price=float(exit_price),
+            reason=str(reason),
+            sell_cost_rate=float(self.cfg.sell_cost_rate),
+        )
+        if not trade_row:
+            return
+
+        shares = int(trade_row.get("shares", 0))
+        realized = float(trade_row.get("realized_pnl", 0.0))
+
+        if side == Side.LONG:
+            self.account.long_sell(float(exit_price), shares, sell_cost_rate=self.cfg.sell_cost_rate)
         else:
-            entry_net = self.active_trade.entry_price * shares * (1.0 - self.cfg.sell_cost_rate)
-            cover_cost = exit_price * shares
-            realized = entry_net - cover_cost
-            self.account.short_cover(exit_price, shares)
-
-        self.active_trade.exit_date = date
-        self.active_trade.exit_price = float(exit_price)
-        self.active_trade.realized_pnl = float(realized)
-        self.active_trade.exit_reason = reason
-
-        self.trade_logs.append({
-            "symbol": self.active_trade.symbol,
-            "side": int(self.active_trade.side.value),
-            "entry_date": self.active_trade.entry_date,
-            "entry_price": self.active_trade.entry_price,
-            "shares": self.active_trade.shares,
-            "exit_date": self.active_trade.exit_date,
-            "exit_price": self.active_trade.exit_price,
-            "realized_pnl": self.active_trade.realized_pnl,
-            "exit_reason": self.active_trade.exit_reason,
-        })
+            self.account.short_cover(float(exit_price), shares)
 
         # update PL filter context
-        self.ctx.last_trade_side = self.active_trade.side
+        self.ctx.last_trade_side = side
         self.ctx.last_trade_pnl = float(realized)
 
         # update min-position state based on outcome
@@ -414,7 +412,7 @@ class SingleSymbolBacktester:
             else:
                 self.consecutive_losses = 0
 
-        if self.pos_side == Side.SHORT:
+        if side == Side.SHORT:
             self.account.release_locked()
 
         # reset position
@@ -432,7 +430,7 @@ class SingleSymbolBacktester:
         self.short_hold_days = 0
         self.short_basis_price = 0.0
         self.short_open_date = None
-        self.active_trade = None
+        # Trader already reset its open-state.
         self.pending_exit_reason = None
         self.last_pyramid_fill_i = None
 
@@ -559,31 +557,44 @@ class SingleSymbolBacktester:
                     if order.side == Side.LONG:
                         self.account.long_buy(fill, add_shares)
                         if self.pos_side == Side.FLAT:
+                            # Trader (lot-level) entry
+                            self.trader.on_entry_fill(
+                                date=date,
+                                side=Side.LONG,
+                                price=fill,
+                                shares=add_shares,
+                                reason=str(order.reason),
+                                is_pyramid=False,
+                            )
                             self.pos_side = Side.LONG
-                            self.pos_units = 1
-                            self.pos_shares = add_shares
-                            self.pos_avg_price = fill
+                            self.pos_units = int(self.trader.pos_units)
+                            self.pos_shares = int(self.trader.pos_shares)
+                            self.pos_avg_price = float(self.trader.avg_entry_price)
                             self.pos_atr_ref = float(order.atr_ref)
                             self.pos_h_max = max(h, fill)
                             self.pos_ts_active = False
                             self.pos_even_armed = False
                             self.pos_box_level = 0.0
-                            self.active_trade = Trade(symbol=self.cfg.symbol, side=Side.LONG, entry_date=date, entry_price=fill, shares=add_shares)
                             if self.cfg.pyramiding_type == PyramidingType.B_DARVAS_BOX:
                                 self.last_pyramid_fill_i = i
                         else:
-                            # pyramiding long: update weighted-average X and position size.
-                            new_total = self.pos_shares + add_shares
-                            self.pos_avg_price = (self.pos_avg_price * self.pos_shares + fill * add_shares) / new_total
-                            self.pos_shares = new_total
-                            self.pos_units += 1
+                            # Pyramiding long: keep first entry date/price for reporting,
+                            # while updating avg price via lot-level accounting.
+                            self.trader.on_entry_fill(
+                                date=date,
+                                side=Side.LONG,
+                                price=fill,
+                                shares=add_shares,
+                                reason=str(order.reason),
+                                is_pyramid=True,
+                            )
+                            self.pos_shares = int(self.trader.pos_shares)
+                            self.pos_units = int(self.trader.pos_units)
+                            self.pos_avg_price = float(self.trader.avg_entry_price)
                             self.pos_atr_ref = float(order.atr_ref)
 
                             # NOTE: Do NOT reset trailing extrema / TS / even-stop state.
                             # We keep H_max/L_min and TS activation to avoid losing the protective stop.
-                            if self.active_trade:
-                                self.active_trade.shares = self.pos_shares
-                                self.active_trade.entry_price = float(self.pos_avg_price)
 
                         if str(order.reason).upper().startswith("PYRAMID"):
                             self.last_pyramid_fill_i = i
@@ -592,10 +603,18 @@ class SingleSymbolBacktester:
                         if self._can_open_short_with_limit(add_shares, sell_price=fill):
                             self.account.short_sell(fill, add_shares, sell_cost_rate=self.cfg.sell_cost_rate)
                             if self.pos_side == Side.FLAT:
+                                self.trader.on_entry_fill(
+                                    date=date,
+                                    side=Side.SHORT,
+                                    price=fill,
+                                    shares=add_shares,
+                                    reason=str(order.reason),
+                                    is_pyramid=False,
+                                )
                                 self.pos_side = Side.SHORT
-                                self.pos_units = 1
-                                self.pos_shares = add_shares
-                                self.pos_avg_price = fill
+                                self.pos_units = int(self.trader.pos_units)
+                                self.pos_shares = int(self.trader.pos_shares)
+                                self.pos_avg_price = float(self.trader.avg_entry_price)
                                 self.pos_atr_ref = float(order.atr_ref)
                                 self.pos_l_min = min(l, fill)
                                 self.pos_ts_active = False
@@ -603,22 +622,26 @@ class SingleSymbolBacktester:
                                 self.pos_box_level = 0.0
                                 self.short_hold_days = 0
                                 self.short_open_date = date
-                                self.short_basis_price = fill
-                                self.active_trade = Trade(symbol=self.cfg.symbol, side=Side.SHORT, entry_date=date, entry_price=fill, shares=add_shares)
+                                # Keep legacy snapshot column (avg basis price)
+                                self.short_basis_price = float(self.trader.avg_entry_price)
                                 if self.cfg.pyramiding_type == PyramidingType.B_DARVAS_BOX:
                                     self.last_pyramid_fill_i = i
                             else:
-                                new_total = self.pos_shares + add_shares
-                                self.pos_avg_price = (self.pos_avg_price * self.pos_shares + fill * add_shares) / new_total
-                                self.pos_shares = new_total
-                                self.pos_units += 1
+                                self.trader.on_entry_fill(
+                                    date=date,
+                                    side=Side.SHORT,
+                                    price=fill,
+                                    shares=add_shares,
+                                    reason=str(order.reason),
+                                    is_pyramid=True,
+                                )
+                                self.pos_shares = int(self.trader.pos_shares)
+                                self.pos_units = int(self.trader.pos_units)
+                                self.pos_avg_price = float(self.trader.avg_entry_price)
                                 self.pos_atr_ref = float(order.atr_ref)
 
                                 # NOTE: Do NOT reset trailing extrema / TS / even-stop state.
-                                self.short_basis_price = (self.short_basis_price * (new_total - add_shares) + fill * add_shares) / new_total
-                                if self.active_trade:
-                                    self.active_trade.shares = self.pos_shares
-                                    self.active_trade.entry_price = float(self.pos_avg_price)
+                                self.short_basis_price = float(self.trader.avg_entry_price)
 
                             if str(order.reason).upper().startswith("PYRAMID"):
                                 self.last_pyramid_fill_i = i
@@ -768,9 +791,10 @@ class SingleSymbolBacktester:
             })
 
         equity_df = pd.DataFrame(self.snapshots).set_index("date")
-        trades_df = pd.DataFrame(self.trade_logs)
+        trades_df = pd.DataFrame(self.trader.trades)
+        fills_df = pd.DataFrame(self.trader.fills)
         summary = self._summarize(equity_df, trades_df)
-        return BacktestResult(equity_curve=equity_df, trades=trades_df, summary=summary)
+        return BacktestResult(equity_curve=equity_df, trades=trades_df, fills=fills_df, summary=summary)
 
     # -------------------- pyramiding --------------------
     def _pyramid_long(self, df: pd.DataFrame, i: int, close: float, atr_ref: float, date: str) -> bool:

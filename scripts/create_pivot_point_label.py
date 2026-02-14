@@ -28,13 +28,13 @@ def _resolve_col(df: pd.DataFrame, candidates: list[str], required: bool = True)
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Create pivot-point labels (20d/110d) and optional HTML chart.")
     p.add_argument("--csv", required=True, help="Input CSV path")
-    p.add_argument("--out", default="outputs/pivotal point/labeled_pivots.csv", help="Output CSV path")
+    p.add_argument("--out", default="outputs/labeled_pivots.csv", help="Output CSV path")
     p.add_argument("--out-html", default=None, help="Output HTML chart path. Default: <out>.html")
     p.add_argument("--no-html", action="store_true", help="Disable HTML generation")
     p.add_argument("--ticker", default=None, help="Optional ticker filter for panel CSV")
     p.add_argument("--short-window", type=int, default=20, help="Short pivot window (default: 20)")
     p.add_argument("--mid-window", type=int, default=110, help="Mid pivot window (default: 110)")
-    p.add_argument("--plot-tail", type=int, default=0, help="Rows to display in HTML chart (0=all rows)")
+    p.add_argument("--plot-tail", type=int, default=1000, help="Rows to display in HTML chart")
     return p.parse_args()
 
 
@@ -66,7 +66,7 @@ def _write_html(
     mid_suffix: str,
     plot_tail: int,
 ) -> None:
-    plot_df = df.copy() if int(plot_tail) <= 0 else df.tail(int(plot_tail)).copy()
+    plot_df = df.tail(int(plot_tail)).copy()
     x = plot_df[date_col]
 
     fig = go.Figure()

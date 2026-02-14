@@ -55,6 +55,7 @@ def write_interactive_abc(
     equity_curve_csv: str | Path,
     out_html: str | Path,
     trades_csv: Optional[str | Path] = None,
+    fills_csv: Optional[str | Path] = None,
     title: str = "Trend Following Analysis",
     show_donchian: bool = False,
 ) -> Path:
@@ -114,35 +115,86 @@ def write_interactive_abc(
             )
 
     # --- Trading Signals (Plot A) ---
-    if trades_csv and Path(trades_csv).exists():
-        tr = pd.read_csv(trades_csv)
-        for dc in ("entry_date", "exit_date"):
-            if dc in tr.columns: tr[dc] = pd.to_datetime(tr[dc])
-        
-        # 1 & 2. Long/Short Entry
-        if {"entry_date", "entry_price", "side"}.issubset(tr.columns):
-            long_e = tr[tr["side"].astype(int) == 1]
-            short_e = tr[tr["side"].astype(int) == -1]
-            fig.add_trace(go.Scatter(x=long_e["entry_date"], y=long_e["entry_price"], mode="markers", name="Long Entry", 
-                                     marker=dict(symbol="triangle-up", size=12, color="#2ecc71", line=dict(width=1, color="black")), legendgroup="group1"), row=1, col=1)
-            fig.add_trace(go.Scatter(x=short_e["entry_date"], y=short_e["entry_price"], mode="markers", name="Short Entry", 
-                                     marker=dict(symbol="triangle-down", size=12, color="#e67e22", line=dict(width=1, color="black")), legendgroup="group1"), row=1, col=1)
+    # Prefer lot-level fills when available (fixes "ghost entry" issue).
+    if fills_csv is None and trades_csv is not None:
+        cand = Path(trades_csv).with_name("fills.csv")
+        if cand.exists():
+            fills_csv = cand
 
-        # 3 & 4. Exit markers (color-coded by stop/exit reason)
-        # - Symbol is always 'x' (same), color encodes the exit type.
-        if {"exit_date", "exit_price"}.issubset(tr.columns):
-            ex = tr.dropna(subset=["exit_date", "exit_price"]).copy()
-            if "exit_reason" not in ex.columns:
-                ex["exit_reason"] = ""
-            ex["exit_reason"] = ex["exit_reason"].fillna("").astype(str)
-            if "side" in ex.columns:
-                ex["side"] = ex["side"].astype(int)
-            else:
-                ex["side"] = 0
+    fills_df: Optional[pd.DataFrame] = None
+    if fills_csv and Path(fills_csv).exists():
+        fills_df = pd.read_csv(fills_csv)
+        if "date" in fills_df.columns:
+            fills_df["date"] = pd.to_datetime(fills_df["date"], errors="coerce")
+        if "side" in fills_df.columns:
+            fills_df["side"] = fills_df["side"].astype(int)
+        if "action" in fills_df.columns:
+            fills_df["action"] = fills_df["action"].fillna("").astype(str).str.upper()
+        if "reason" in fills_df.columns:
+            fills_df["reason"] = fills_df["reason"].fillna("").astype(str)
 
+    if fills_df is not None and len(fills_df):
+        # ENTRY markers
+        ent = fills_df[fills_df["action"] == "ENTRY"].copy()
+        if len(ent):
+            long_e = ent[ent["side"] == 1]
+            short_e = ent[ent["side"] == -1]
+            fig.add_trace(
+                go.Scatter(
+                    x=long_e["date"],
+                    y=long_e["price"],
+                    mode="markers",
+                    name="Long Entry",
+                    marker=dict(symbol="triangle-up", size=12, color="#2ecc71", line=dict(width=1, color="black")),
+                    hovertext=long_e.apply(lambda r: f"LONG Entry<br>Reason: {r.get('reason','')}<br>Price: {float(r['price']):,.2f}<br>Shares: {int(r['shares'])}", axis=1),
+                    hoverinfo="text",
+                    legendgroup="group1",
+                ),
+                row=1,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=short_e["date"],
+                    y=short_e["price"],
+                    mode="markers",
+                    name="Short Entry",
+                    marker=dict(symbol="triangle-down", size=12, color="#e67e22", line=dict(width=1, color="black")),
+                    hovertext=short_e.apply(lambda r: f"SHORT Entry<br>Reason: {r.get('reason','')}<br>Price: {float(r['price']):,.2f}<br>Shares: {int(r['shares'])}", axis=1),
+                    hoverinfo="text",
+                    legendgroup="group1",
+                ),
+                row=1,
+                col=1,
+            )
+
+        # PYRAMID markers
+        pyr = fills_df[fills_df["action"].isin(["PYRAMID", "ADD"])].copy()
+        if len(pyr):
+            fig.add_trace(
+                go.Scatter(
+                    x=pyr["date"],
+                    y=pyr["price"],
+                    mode="markers",
+                    name="Pyramiding",
+                    marker=dict(symbol="diamond", size=10, color="#3498db", line=dict(width=1, color="white")),
+                    hovertext=pyr.apply(
+                        lambda r: f"Pyramiding<br>Reason: {r.get('reason','')}<br>Price: {float(r['price']):,.2f}<br>Shares: {int(r['shares'])}<br>Units after: {int(r.get('pos_units_after',0))}",
+                        axis=1,
+                    ),
+                    hoverinfo="text",
+                    legendgroup="group1",
+                ),
+                row=1,
+                col=1,
+            )
+
+        # EXIT markers (color-coded by reason)
+        ex = fills_df[fills_df["action"] == "EXIT"].copy()
+        if len(ex):
+            ex["exit_reason"] = ex.get("reason", "").fillna("").astype(str)
             ex["exit_cat"] = ex["exit_reason"].map(_classify_exit_reason)
 
-            # Category -> color (Plotly accepts hex colors)
             color_map = {
                 "STOP_LOSS": "#e74c3c",
                 "TS_A": "#3498db",
@@ -156,8 +208,6 @@ def write_interactive_abc(
                 "EXIT(UNKNOWN)": "#95a5a6",
                 "EXIT(OTHER)": "#95a5a6",
             }
-
-            # Stable legend order
             cat_order = [
                 "STOP_LOSS",
                 "TS_A",
@@ -179,12 +229,127 @@ def write_interactive_abc(
                     return "SHORT"
                 return "?"
 
-            # Hover text
+            ex["hover"] = ex.apply(
+                lambda r: f"{_side_name(int(r.get('side',0)))} Exit<br>"
+                          f"Reason: {str(r.get('exit_reason',''))}<br>"
+                          f"Price: {float(r['price']):,.2f}",
+                axis=1,
+            )
+
+            for cat in cat_order:
+                sub = ex[ex["exit_cat"] == cat]
+                if len(sub) == 0:
+                    continue
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub["date"],
+                        y=sub["price"],
+                        mode="markers",
+                        name=f"Exit: {cat}",
+                        marker=dict(symbol="x", size=9, color=color_map.get(cat, "#95a5a6"), line=dict(width=1, color="black")),
+                        hovertext=sub["hover"],
+                        hoverinfo="text",
+                        legendgroup="group1",
+                    ),
+                    row=1,
+                    col=1,
+                )
+
+    elif trades_csv and Path(trades_csv).exists():
+        # Fallback: trade-level markers (no lot detail)
+        tr = pd.read_csv(trades_csv)
+        for dc in ("entry_date", "exit_date"):
+            if dc in tr.columns:
+                tr[dc] = pd.to_datetime(tr[dc], errors="coerce")
+
+        # 1 & 2. Long/Short Entry
+        if {"entry_date", "entry_price", "side"}.issubset(tr.columns):
+            # If the file contains an explicit first-entry column, prefer it.
+            px_col = "entry_price"
+            for cand in ("first_entry_price", "entry_price_first"):
+                if cand in tr.columns:
+                    px_col = cand
+                    break
+            long_e = tr[tr["side"].astype(int) == 1]
+            short_e = tr[tr["side"].astype(int) == -1]
+            fig.add_trace(
+                go.Scatter(
+                    x=long_e["entry_date"],
+                    y=long_e[px_col],
+                    mode="markers",
+                    name="Long Entry",
+                    marker=dict(symbol="triangle-up", size=12, color="#2ecc71", line=dict(width=1, color="black")),
+                    legendgroup="group1",
+                ),
+                row=1,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=short_e["entry_date"],
+                    y=short_e[px_col],
+                    mode="markers",
+                    name="Short Entry",
+                    marker=dict(symbol="triangle-down", size=12, color="#e67e22", line=dict(width=1, color="black")),
+                    legendgroup="group1",
+                ),
+                row=1,
+                col=1,
+            )
+
+        # 3 & 4. Exit markers (color-coded by stop/exit reason)
+        if {"exit_date", "exit_price"}.issubset(tr.columns):
+            ex = tr.dropna(subset=["exit_date", "exit_price"]).copy()
+            if "exit_reason" not in ex.columns:
+                ex["exit_reason"] = ""
+            ex["exit_reason"] = ex["exit_reason"].fillna("").astype(str)
+            if "side" in ex.columns:
+                ex["side"] = ex["side"].astype(int)
+            else:
+                ex["side"] = 0
+
+            ex["exit_cat"] = ex["exit_reason"].map(_classify_exit_reason)
+
+            color_map = {
+                "STOP_LOSS": "#e74c3c",
+                "TS_A": "#3498db",
+                "TS_C": "#1abc9c",
+                "TS_B": "#7f8c8d",
+                "EVEN_STOP": "#f1c40f",
+                "EMERGENCY_OPEN": "#9b59b6",
+                "EMERGENCY_PREVCLOSE": "#e67e22",
+                "EMERGENCY_C2C": "#2c3e50",
+                "FORCED_SHORT_MAXHOLD": "#000000",
+                "EXIT(UNKNOWN)": "#95a5a6",
+                "EXIT(OTHER)": "#95a5a6",
+            }
+
+            cat_order = [
+                "STOP_LOSS",
+                "TS_A",
+                "TS_C",
+                "TS_B",
+                "EVEN_STOP",
+                "EMERGENCY_OPEN",
+                "EMERGENCY_PREVCLOSE",
+                "EMERGENCY_C2C",
+                "FORCED_SHORT_MAXHOLD",
+                "EXIT(OTHER)",
+                "EXIT(UNKNOWN)",
+            ]
+
+            def _side_name(v: int) -> str:
+                if int(v) == 1:
+                    return "LONG"
+                if int(v) == -1:
+                    return "SHORT"
+                return "?"
+
             ex["hover"] = ex.apply(
                 lambda r: f"{_side_name(int(r['side']))} Exit<br>"
                           f"Reason: {str(r['exit_reason'])}<br>"
                           f"Price: {float(r['exit_price']):,.2f}",
-                axis=1
+                axis=1,
             )
 
             for cat in cat_order:
@@ -207,21 +372,31 @@ def write_interactive_abc(
                         hoverinfo="text",
                         legendgroup="group1",
                     ),
-                    row=1, col=1
+                    row=1,
+                    col=1,
                 )
 
 
-    # 5. Pyramiding (pos_units 증가 지점)
-    if "pos_units" in eq_df.columns:
+    # 5. Pyramiding markers are preferably plotted from fills.csv.
+    # If fills are unavailable, keep the legacy (pos_units diff) fallback.
+    if (fills_df is None or len(fills_df) == 0) and "pos_units" in eq_df.columns:
         pu = eq_df["pos_units"].astype(float)
-        # 보유 수량이 이전보다 증가하고, 1단위 이상일 때
         inc = (pu.diff() > 0.0) & (pu > 1.0)
         if inc.any():
             prmd_dates = pu.index[inc.fillna(False)]
-            # 해당 날짜의 종가(C) 위치에 마킹
-            prmd_prices = plot_df['C'].reindex(prmd_dates).astype(float)
-            fig.add_trace(go.Scatter(x=prmd_dates, y=prmd_prices, mode="markers", name="Pyramiding", 
-                                     marker=dict(symbol="diamond", size=10, color="#3498db", line=dict(width=1, color="white")), legendgroup="group1"), row=1, col=1)
+            prmd_prices = plot_df["C"].reindex(prmd_dates).astype(float)
+            fig.add_trace(
+                go.Scatter(
+                    x=prmd_dates,
+                    y=prmd_prices,
+                    mode="markers",
+                    name="Pyramiding",
+                    marker=dict(symbol="diamond", size=10, color="#3498db", line=dict(width=1, color="white")),
+                    legendgroup="group1",
+                ),
+                row=1,
+                col=1,
+            )
 
     # --- Plot B: Equity ---
     fig.add_trace(

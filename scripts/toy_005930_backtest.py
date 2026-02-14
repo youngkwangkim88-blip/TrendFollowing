@@ -210,7 +210,9 @@ def main() -> None:
 
     (outdir / "equity_curve.csv").write_text(res.equity_curve.to_csv(index=True), encoding="utf-8")
     (outdir / "trades.csv").write_text(res.trades.to_csv(index=False), encoding="utf-8")
+    (outdir / "fills.csv").write_text(res.fills.to_csv(index=False), encoding="utf-8")
     (outdir / "summary.json").write_text(json.dumps(res.summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    (outdir / "trader_report.txt").write_text(bt.trader.how_did_you_trade(max_trades=200), encoding="utf-8")
     (outdir / "config.json").write_text(json.dumps(cfg.__dict__, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print("=== SUMMARY ===")

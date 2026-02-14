@@ -54,6 +54,13 @@
 - 리포트/플로팅:
   - Python 기본 리포트 + 필요 시 **Python → MATLAB**을 통한 고품질 플로팅 생성(선택)
 
+### 4.1 트레이딩 도메인 분리(Trader / TraderMaster)
+- `Trader`: 심볼 단위 포지션(진입/피라미딩/청산)과 **lot(체결) 기반 로그**를 관리
+  - `first_entry_date/price`와 `avg_entry_price`를 분리하여, 피라미딩 전략에서 흔한 "고스트 타점" 리포팅 오류를 방지
+- `TraderMaster`: 계좌(원화/달러/CMA 등)와 여러 Trader를 소유하는 상위 컨테이너
+- 로그 산출물: `trades.csv`(포지션 단위) + `fills.csv`(체결 단위) + `trader_report.txt`
+- 상세 문서: `docs/trader_trader_master.md`
+
 ---
 
 ## 5. 거래/집행 규칙(Execution Rules)

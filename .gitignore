@@ -68,6 +68,13 @@ dist/
 .eggs/
 pip-wheel-metadata/
 wheelhouse/
+*.zip
+*.7z
+*.tar
+*.gz
+*.bz2
+*.xz
+*.rar
 
 ############################################
 # Test / coverage / typecheck / lint caches
