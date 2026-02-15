@@ -1,0 +1,2 @@
+trader_id,symbol,side,fill_date,fill_price,fill_shares,fill_type,reason,pos_units_after,pos_shares_after,avg_price_after,shares
+SMOKE,SMK_B_CROSSDAY,1,2020-02-17,101.0,139600,ENTRY,ENTRY_B_GOLDEN_DC20_OVR,1,139600,101.0,

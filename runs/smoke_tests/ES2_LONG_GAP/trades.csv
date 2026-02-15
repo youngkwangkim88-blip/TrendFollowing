@@ -1,0 +1,2 @@
+trader_id,symbol,side,entry_date,entry_price,avg_entry_price,num_entries,shares,exit_date,exit_price,realized_pnl,exit_reason
+SMOKE,SMK_ES2G,1,2020-03-03,100000.0,100000.0,1,500,2020-03-04,94000.0,-3141000.0,EMERGENCY_PREVCLOSE_5PCT_GAP

@@ -1,0 +1,2 @@
+trader_id,symbol,side,entry_date,entry_price,avg_entry_price,num_entries,shares,exit_date,exit_price,realized_pnl,exit_reason
+SMOKE,SMK_EVEN_G,1,2020-05-12,100000.0,100000.0,1,500,2020-05-14,98000.0,-1147000.0,EVEN_STOP_GAP

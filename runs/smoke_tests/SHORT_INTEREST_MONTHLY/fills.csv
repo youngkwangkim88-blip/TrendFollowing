@@ -1,0 +1,2 @@
+trader_id,symbol,side,fill_date,fill_price,fill_shares,fill_type,reason,pos_units_after,pos_shares_after,avg_price_after,shares
+SMOKE,SMK_SI,-1,2020-01-29,50000.0,100,ENTRY,ENTRY_MANUAL_SHORT,1,100,50000.0,

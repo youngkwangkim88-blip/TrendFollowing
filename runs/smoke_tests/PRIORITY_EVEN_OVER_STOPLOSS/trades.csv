@@ -1,0 +1,2 @@
+trader_id,symbol,side,entry_date,entry_price,avg_entry_price,num_entries,shares,exit_date,exit_price,realized_pnl,exit_reason
+SMOKE,SMK_PRIO_EVEN_SL,1,2020-08-04,100.0,100.0,1,500000,2020-08-06,100.0,-150000.0,EVEN_STOP_TOUCH

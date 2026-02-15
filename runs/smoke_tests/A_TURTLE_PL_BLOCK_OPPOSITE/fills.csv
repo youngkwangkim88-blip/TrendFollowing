@@ -1,0 +1,3 @@
+trader_id,symbol,side,fill_date,fill_price,fill_shares,fill_type,reason,pos_units_after,pos_shares_after,avg_price_after,shares
+SMOKE,SMK_PL_BLOCK,1,2020-01-31,120.0,335353,ENTRY,ENTRY_A_20,1,335353,120.0,
+SMOKE,SMK_PL_BLOCK,1,2020-03-05,126.0,335353,EXIT,TS_B_DEAD_CROSS,1,335353,120.0,

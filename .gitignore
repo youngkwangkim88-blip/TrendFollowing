@@ -29,7 +29,7 @@ logs/
 .env
 .env.*
 !.env.example
-
+.npz
 # Credentials / keys (just in case)
 *.pem
 *.key

@@ -239,6 +239,57 @@ class ShortEma2040DeadCrossRule(EntryRule):
         return EntryDecision(Side.FLAT)
 
 
+class ManualEntryRule(EntryRule):
+    """Manual entry rule for synthetic smoke tests.
+
+    This rule reads a column `manual_entry` from the dataframe at day T close.
+
+    Convention
+    ----------
+    - manual_entry > 0  -> LONG entry decision
+    - manual_entry < 0  -> SHORT entry decision
+    - else              -> FLAT
+
+    Notes
+    -----
+    - Decisions are still executed at **T+1 open** by the engine.
+    - We set `bypass_filter_pl=True` so the PL filter cannot suppress manual signals.
+    """
+
+    def __init__(self, col: str = "manual_entry"):
+        super().__init__(EntryRuleType.MANUAL)
+        self.col = str(col)
+
+    def evaluate(self, df: pd.DataFrame, i: int, ctx: EntryContext) -> EntryDecision:
+        if self.col not in df.columns:
+            return EntryDecision(Side.FLAT)
+
+        v = df[self.col].iloc[i]
+        if pd.isna(v):
+            return EntryDecision(Side.FLAT)
+
+        # accept ints/floats and some strings
+        side = None
+        if isinstance(v, (int, float)):
+            if float(v) > 0:
+                side = Side.LONG
+            elif float(v) < 0:
+                side = Side.SHORT
+        else:
+            s = str(v).strip().upper()
+            if s in ("1", "+1", "LONG", "L"):
+                side = Side.LONG
+            elif s in ("-1", "SHORT", "S"):
+                side = Side.SHORT
+
+        if side == Side.LONG:
+            return EntryDecision(Side.LONG, reason="ENTRY_MANUAL_LONG", bypass_filter_pl=True)
+        if side == Side.SHORT:
+            return EntryDecision(Side.SHORT, reason="ENTRY_MANUAL_SHORT", bypass_filter_pl=True)
+        return EntryDecision(Side.FLAT)
+
+
+
 def build_entry_rule(rule_type: EntryRuleType) -> EntryRule:
     if rule_type == EntryRuleType.A_TURTLE:
         return TurtleComboRule(donchian_window_20=20, donchian_window_55=55)
@@ -253,5 +304,8 @@ def build_entry_rule(rule_type: EntryRuleType) -> EntryRule:
 
     if rule_type == EntryRuleType.SHORT_EMA20_40_DEAD:
         return ShortEma2040DeadCrossRule(ema_fast="ema20", ema_slow="ema40")
+
+    if rule_type == EntryRuleType.MANUAL:
+        return ManualEntryRule(col="manual_entry")
 
     raise ValueError(f"Unknown entry rule type: {rule_type}")

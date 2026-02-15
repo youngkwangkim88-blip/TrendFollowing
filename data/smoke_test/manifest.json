@@ -1,0 +1,2172 @@
+{
+  "version": 3,
+  "description": "Synthetic smoke-test cases for execution/stop/accounting integrity (extended v4: fees + sizing defense + schedule/stop collision)",
+  "cases": [
+    {
+      "case_id": "ES1_LONG_TOUCH",
+      "description": "ES1: emergency stop based on same-day open (TOUCH). Long holds overnight then open gaps up and drops 5% intraday.",
+      "csv": "cases/ES1_LONG_TOUCH.csv",
+      "symbol": "SMK_ES1",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-01-07",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100000
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-01-08",
+          "side": 1,
+          "reason": "EMERGENCY_OPEN_5PCT_TOUCH",
+          "price": 104500
+        }
+      ]
+    },
+    {
+      "case_id": "ES2_LONG_TOUCH",
+      "description": "ES2: emergency stop based on previous close (TOUCH). Same-day entry+exit to validate intraday stop-out accounting and active-mask.",
+      "csv": "cases/ES2_LONG_TOUCH.csv",
+      "symbol": "SMK_ES2T",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-02-04",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 97000
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-02-04",
+          "side": 1,
+          "reason": "EMERGENCY_PREVCLOSE_5PCT_TOUCH",
+          "price": 95000
+        }
+      ],
+      "assertions": {
+        "active_mask_should_capture_intraday_stop": {
+          "date": "2020-02-04"
+        }
+      }
+    },
+    {
+      "case_id": "ES2_LONG_GAP",
+      "description": "ES2: emergency stop based on previous close (GAP). Long exits at next open due to overnight gap below -5% threshold.",
+      "csv": "cases/ES2_LONG_GAP.csv",
+      "symbol": "SMK_ES2G",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-03-03",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100000
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-03-04",
+          "side": 1,
+          "reason": "EMERGENCY_PREVCLOSE_5PCT_GAP",
+          "price": 94000
+        }
+      ]
+    },
+    {
+      "case_id": "EVEN_LONG_TOUCH",
+      "description": "Even-stop (TOUCH): after reaching +10% peak, return to entry price triggers break-even exit intraday.",
+      "csv": "cases/EVEN_LONG_TOUCH.csv",
+      "symbol": "SMK_EVEN_T",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.1,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-04-14",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100000
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-04-16",
+          "side": 1,
+          "reason": "EVEN_STOP_TOUCH",
+          "price": 100000
+        }
+      ]
+    },
+    {
+      "case_id": "EVEN_LONG_GAP",
+      "description": "Even-stop (GAP): after reaching +10% peak, next day opens below entry and exits at open.",
+      "csv": "cases/EVEN_LONG_GAP.csv",
+      "symbol": "SMK_EVEN_G",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.1,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-05-12",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100000
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-05-14",
+          "side": 1,
+          "reason": "EVEN_STOP_GAP",
+          "price": 98000
+        }
+      ]
+    },
+    {
+      "case_id": "ES3_LONG_SCHEDULE",
+      "description": "ES3: close-to-close emergency stop scheduled exit. Close drops >5% vs prior close; exit executes next open (reason=EMERGENCY_STOP_5PCT).",
+      "csv": "cases/ES3_LONG_SCHEDULE.csv",
+      "symbol": "SMK_ES3",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-06-02",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 74500
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-06-09",
+          "side": 1,
+          "reason": "EMERGENCY_STOP_5PCT",
+          "price": 70600
+        }
+      ]
+    },
+    {
+      "case_id": "SHORT_INTEREST_MONTHLY",
+      "description": "Short interest monthly deduction: accrue daily interest, deduct on first trading day of next month (cashflow), while price stays constant.",
+      "csv": "cases/SHORT_INTEREST_MONTHLY.csv",
+      "symbol": "SMK_SI",
+      "config_overrides": {
+        "initial_capital": 10000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 999.0,
+        "sell_cost_rate": 0.003,
+        "annual_short_interest_rate": 0.045,
+        "short_max_hold_days": 999
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-01-29",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 50000
+        }
+      ],
+      "assertions": {
+        "monthly_interest_deduction": {
+          "jan_last": "2020-01-31",
+          "feb_first": "2020-02-03"
+        }
+      }
+    },
+    {
+      "case_id": "SHORT_MAX_HOLD",
+      "description": "Forced short max-hold-days exit: exit at open when hold_days >= short_max_hold_days.",
+      "csv": "cases/SHORT_MAX_HOLD.csv",
+      "symbol": "SMK_SMH",
+      "config_overrides": {
+        "initial_capital": 10000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 999.0,
+        "short_max_hold_days": 3
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-03-03",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 60000
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-03-06",
+          "side": -1,
+          "reason": "SHORT_MAX_HOLD_DAYS",
+          "price": 60000
+        }
+      ]
+    },
+    {
+      "case_id": "A_TURTLE_LONG_ENTRY",
+      "description": "Type A (Turtle): Donchian20 long entry at T+1 open (cycle filter ON).",
+      "csv": "cases/A_TURTLE_LONG_ENTRY.csv",
+      "symbol": "SMK_A_LONG",
+      "config_overrides": {
+        "entry_rule": "A_TURTLE",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "filter_pl": false,
+        "filter_cycle": true,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-01-31",
+          "reason": "ENTRY_A_20",
+          "side": 1,
+          "price": 120.0
+        }
+      ],
+      "assertions": {
+        "fill_count": {
+          "ENTRY": 1,
+          "PYRAMID": 0,
+          "EXIT": 0
+        }
+      }
+    },
+    {
+      "case_id": "A_TURTLE_SHORT_ENTRY",
+      "description": "Type A (Turtle): Donchian20 short entry at T+1 open (cycle filter ON).",
+      "csv": "cases/A_TURTLE_SHORT_ENTRY.csv",
+      "symbol": "SMK_A_SHORT",
+      "config_overrides": {
+        "entry_rule": "A_TURTLE",
+        "trade_mode": "SHORT_ONLY",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "filter_pl": false,
+        "filter_cycle": true,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-01-31",
+          "reason": "ENTRY_A_20",
+          "side": -1,
+          "price": 180.0
+        }
+      ],
+      "assertions": {
+        "fill_count": {
+          "ENTRY": 1,
+          "PYRAMID": 0,
+          "EXIT": 0
+        }
+      }
+    },
+    {
+      "case_id": "FILTER_CYCLE_BLOCK_LONG",
+      "description": "Cycle filter blocks long entry even if Donchian20 breakout occurs (phase=4 disallows long).",
+      "csv": "cases/FILTER_CYCLE_BLOCK_LONG.csv",
+      "symbol": "SMK_CYCLE_BLOCK_LONG",
+      "config_overrides": {
+        "entry_rule": "A_TURTLE",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "filter_pl": false,
+        "filter_cycle": true,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [],
+      "assertions": {
+        "expect_no_fills": true,
+        "raw_checks": [
+          {
+            "type": "DONCHIAN20_LONG",
+            "date": "2020-03-26",
+            "expected": true
+          },
+          {
+            "type": "CYCLE_ALLOWS_LONG",
+            "date": "2020-03-26",
+            "expected": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "A_TURTLE_PL_BLOCK_OPPOSITE",
+      "description": "Filter A (PL): after a profitable long, opposite 20-day short breakout is blocked (no short entry).",
+      "csv": "cases/A_TURTLE_PL_BLOCK_OPPOSITE.csv",
+      "symbol": "SMK_PL_BLOCK",
+      "config_overrides": {
+        "entry_rule": "A_TURTLE",
+        "trade_mode": "LONG_SHORT",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "filter_pl": true,
+        "filter_cycle": true,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-01-31",
+          "reason": "ENTRY_A_20",
+          "side": 1,
+          "price": 120.0
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-03-05",
+          "reason": "TS_B_DEAD_CROSS",
+          "side": 1,
+          "price": 126.0
+        }
+      ],
+      "assertions": {
+        "no_fills_matching": [
+          {
+            "fill_type": "ENTRY",
+            "side": -1
+          }
+        ],
+        "raw_checks": [
+          {
+            "type": "DONCHIAN20_SHORT",
+            "date": "2020-03-12",
+            "expected": true
+          },
+          {
+            "type": "CYCLE_ALLOWS_SHORT",
+            "date": "2020-03-12",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "A_TURTLE_PL_OVR55_SHORT",
+      "description": "Type A (Turtle): Donchian55 override bypasses PL filter (profitable long then short entry via A55).",
+      "csv": "cases/A_TURTLE_PL_OVR55_SHORT.csv",
+      "symbol": "SMK_PL_OVR55",
+      "config_overrides": {
+        "entry_rule": "A_TURTLE",
+        "trade_mode": "LONG_SHORT",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "filter_pl": true,
+        "filter_cycle": true,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-01-31",
+          "reason": "ENTRY_A_20",
+          "side": 1,
+          "price": 220.0
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-04-24",
+          "reason": "TS_B_DEAD_CROSS",
+          "side": 1,
+          "price": 260.0
+        },
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-05-21",
+          "reason": "ENTRY_A_55",
+          "side": -1,
+          "price": 241.0
+        }
+      ],
+      "assertions": {
+        "fill_count": {
+          "ENTRY": 2,
+          "EXIT": 1
+        }
+      }
+    },
+    {
+      "case_id": "B_GOLDEN_DC10_BASE",
+      "description": "Type B: EMA5/20 golden cross then Donchian10 breakout (base DC10, not DC20 override).",
+      "csv": "cases/B_GOLDEN_DC10_BASE.csv",
+      "symbol": "SMK_B_BASE",
+      "config_overrides": {
+        "entry_rule": "B_EMA_CROSS_DC10",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "OFF",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-03-13",
+          "reason": "ENTRY_B_GOLDEN_DC10",
+          "side": 1,
+          "price": 92.0
+        }
+      ],
+      "assertions": {
+        "fill_count": {
+          "ENTRY": 1
+        }
+      }
+    },
+    {
+      "case_id": "B_CROSSDAY_BREAKOUT_IGNORED",
+      "description": "Type B: Breakout on the same day as EMA cross must be ignored (entry happens later).",
+      "csv": "cases/B_CROSSDAY_BREAKOUT_IGNORED.csv",
+      "symbol": "SMK_B_CROSSDAY",
+      "config_overrides": {
+        "entry_rule": "B_EMA_CROSS_DC10",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "OFF",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-02-17",
+          "reason": "ENTRY_B_GOLDEN_DC20_OVR",
+          "side": 1,
+          "price": 101.0
+        }
+      ],
+      "assertions": {
+        "earliest_fill_date": "2020-02-17",
+        "raw_checks": [
+          {
+            "type": "EMA_GOLDEN_CROSS",
+            "date": "2020-02-13",
+            "expected": true
+          },
+          {
+            "type": "DONCHIAN10_LONG",
+            "date": "2020-02-13",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B_DEAD_CROSS_SHORT",
+      "description": "Type B: EMA5/20 dead cross then Donchian10 breakdown triggers short entry.",
+      "csv": "cases/B_DEAD_CROSS_SHORT.csv",
+      "symbol": "SMK_B_DEAD",
+      "config_overrides": {
+        "entry_rule": "B_EMA_CROSS_DC10",
+        "trade_mode": "SHORT_ONLY",
+        "pyramiding_type": "OFF",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-02-17",
+          "reason": "ENTRY_B_DEAD_DC20_OVR",
+          "side": -1,
+          "price": 99.0
+        }
+      ],
+      "assertions": {
+        "earliest_fill_date": "2020-02-17",
+        "raw_checks": [
+          {
+            "type": "EMA_DEAD_CROSS",
+            "date": "2020-02-13",
+            "expected": true
+          },
+          {
+            "type": "DONCHIAN10_SHORT",
+            "date": "2020-02-13",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "PYRAMID_PRMD_A_MAX4",
+      "description": "Pyramiding PRMD.A: percent trigger adds up to max 4 units (3 pyramids).",
+      "csv": "cases/PYRAMID_PRMD_A_MAX4.csv",
+      "symbol": "SMK_PRMD_A",
+      "config_overrides": {
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "PRMD.A",
+        "pyramid_trigger": 0.15,
+        "max_units_per_symbol": 4,
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-01-31",
+          "reason": "ENTRY_MANUAL_LONG",
+          "side": 1,
+          "price": 100.0
+        },
+        {
+          "fill_type": "PYRAMID",
+          "date": "2020-02-21",
+          "reason": "PYRAMID_LONG_PRMD.A",
+          "side": 1,
+          "price": 115.0
+        },
+        {
+          "fill_type": "PYRAMID",
+          "date": "2020-03-05",
+          "reason": "PYRAMID_LONG_PRMD.A",
+          "side": 1,
+          "price": 124.0
+        },
+        {
+          "fill_type": "PYRAMID",
+          "date": "2020-03-13",
+          "reason": "PYRAMID_LONG_PRMD.A",
+          "side": 1,
+          "price": 130.0
+        }
+      ],
+      "assertions": {
+        "fill_count": {
+          "PYRAMID": 3
+        },
+        "max_pos_units_after": 4
+      }
+    },
+    {
+      "case_id": "PYRAMID_PRMD_B_COOLDOWN",
+      "description": "Pyramiding PRMD.B (Darvas box): cooldown respected; pyramids spaced >= 5 trading days.",
+      "csv": "cases/PYRAMID_PRMD_B_COOLDOWN.csv",
+      "symbol": "SMK_PRMD_B",
+      "config_overrides": {
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "PRMD.B",
+        "pyramid_box_window": 20,
+        "pyramid_cooldown_days": 5,
+        "max_units_per_symbol": 4,
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-02-14",
+          "reason": "ENTRY_MANUAL_LONG",
+          "side": 1,
+          "price": 101.0
+        },
+        {
+          "fill_type": "PYRAMID",
+          "date": "2020-02-24",
+          "reason": "PYRAMID_LONG_PRMD.B",
+          "side": 1,
+          "price": 107.0
+        },
+        {
+          "fill_type": "PYRAMID",
+          "date": "2020-03-03",
+          "reason": "PYRAMID_LONG_PRMD.B",
+          "side": 1,
+          "price": 113.0
+        },
+        {
+          "fill_type": "PYRAMID",
+          "date": "2020-03-11",
+          "reason": "PYRAMID_LONG_PRMD.B",
+          "side": 1,
+          "price": 119.0
+        }
+      ],
+      "assertions": {
+        "fill_count": {
+          "PYRAMID": 3
+        },
+        "max_pos_units_after": 4,
+        "pyramid_min_gap_days": 5
+      }
+    },
+    {
+      "case_id": "PRIORITY_ES3_OVER_TS_B",
+      "description": "Composite priority: ES3 (close-to-close emergency) schedules exit and suppresses TS.B scheduling (next open exit reason must be EMERGENCY_STOP_5PCT).",
+      "csv": "cases/PRIORITY_ES3_OVER_TS_B.csv",
+      "symbol": "SMK_PRIO_ES3_TS_B",
+      "config_overrides": {
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 50.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-06-02",
+          "reason": "ENTRY_MANUAL_LONG",
+          "side": 1,
+          "price": 74500.0
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-06-09",
+          "reason": "EMERGENCY_STOP_5PCT",
+          "side": 1,
+          "price": 70600.0
+        }
+      ],
+      "assertions": {
+        "raw_checks": [
+          {
+            "type": "EMA_DEAD_CROSS",
+            "date": "2020-06-08",
+            "expected": true
+          },
+          {
+            "type": "ES3_C2C_LONG",
+            "date": "2020-06-08",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "PRIORITY_STOPLOSS_OVER_EMERGENCY",
+      "description": "Composite priority: STOP_LOSS level is more conservative than emergency level -> reason should be STOP_LOSS_TOUCH (not EMERGENCY).",
+      "csv": "cases/PRIORITY_STOPLOSS_OVER_EMERGENCY.csv",
+      "symbol": "SMK_PRIO_SL_EM",
+      "config_overrides": {
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 2.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-07-02",
+          "reason": "ENTRY_MANUAL_LONG",
+          "side": 1,
+          "price": 100.0
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-07-03",
+          "reason": "STOP_LOSS_TOUCH",
+          "side": 1,
+          "price": 96.0
+        }
+      ]
+    },
+    {
+      "case_id": "PRIORITY_EVEN_OVER_STOPLOSS",
+      "description": "Composite priority: once even-stop is armed, it should exit at entry price even if stop-loss would also be hit (effective stop = max(levels) for long).",
+      "csv": "cases/PRIORITY_EVEN_OVER_STOPLOSS.csv",
+      "symbol": "SMK_PRIO_EVEN_SL",
+      "config_overrides": {
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 2.0,
+        "even_stop_gain": 0.1,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-08-04",
+          "reason": "ENTRY_MANUAL_LONG",
+          "side": 1,
+          "price": 100.0
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-08-06",
+          "reason": "EVEN_STOP_TOUCH",
+          "side": 1,
+          "price": 100.0
+        }
+      ]
+    },
+    {
+      "case_id": "TS_A_TRAIL_EXIT",
+      "description": "TS.A (percent trailing): activates after +20% and exits on trailing stop touch.",
+      "csv": "cases/TS_A_TRAIL_EXIT.csv",
+      "symbol": "SMK_TS_A_TRAIL",
+      "config_overrides": {
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 0.2,
+        "ts_floor_gain": 0.1,
+        "ts_trail_frac": 0.1,
+        "filter_pl": false,
+        "filter_cycle": false,
+        "stop_atr_mult": 2.0,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "initial_capital": 100000000
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-09-02",
+          "reason": "ENTRY_MANUAL_LONG",
+          "side": 1,
+          "price": 100.0
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-09-04",
+          "reason": "TS_A_TOUCH",
+          "side": 1,
+          "price": 112.0
+        }
+      ]
+    },
+    {
+      "case_id": "ES1_SHORT_TOUCH",
+      "description": "ES1 (SHORT): emergency stop based on same-day open (TOUCH). Short holds overnight then open gaps down and rises 5% intraday.",
+      "csv": "cases/ES1_SHORT_TOUCH.csv",
+      "symbol": "SMK_ES1S",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-01-06",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-01-07",
+          "side": -1,
+          "reason": "EMERGENCY_OPEN_5PCT_TOUCH",
+          "price": 95
+        }
+      ]
+    },
+    {
+      "case_id": "ES2_SHORT_TOUCH",
+      "description": "ES2 (SHORT): emergency stop based on previous close (TOUCH). Open is slightly above prev close so ES2 is tighter than ES1.",
+      "csv": "cases/ES2_SHORT_TOUCH.csv",
+      "symbol": "SMK_ES2S_T",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-02-04",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-02-05",
+          "side": -1,
+          "reason": "EMERGENCY_PREVCLOSE_5PCT_TOUCH",
+          "price": 105
+        }
+      ]
+    },
+    {
+      "case_id": "ES2_SHORT_GAP",
+      "description": "ES2 (SHORT): emergency stop based on previous close (GAP). Overnight gap above +5% threshold exits at open.",
+      "csv": "cases/ES2_SHORT_GAP.csv",
+      "symbol": "SMK_ES2S_G",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-03-03",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-03-04",
+          "side": -1,
+          "reason": "EMERGENCY_PREVCLOSE_5PCT_GAP",
+          "price": 110
+        }
+      ]
+    },
+    {
+      "case_id": "ES3_SHORT_SCHEDULE",
+      "description": "ES3 (SHORT): close-to-close emergency stop scheduled exit. Close rises >5% vs prior close; exit executes next open.",
+      "csv": "cases/ES3_SHORT_SCHEDULE.csv",
+      "symbol": "SMK_ES3S",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.05,
+        "stop_atr_mult": 100.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-04-02",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 70001
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-04-07",
+          "side": -1,
+          "reason": "EMERGENCY_STOP_5PCT",
+          "price": 73400
+        }
+      ],
+      "assertions": {
+        "raw_checks": [
+          {
+            "type": "ES3_C2C_SHORT",
+            "date": "2020-04-06",
+            "p": 0.05,
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "EVEN_SHORT_TOUCH",
+      "description": "Even-stop (SHORT, TOUCH): after reaching -10% favorable move, return to entry triggers break-even exit intraday.",
+      "csv": "cases/EVEN_SHORT_TOUCH.csv",
+      "symbol": "SMK_EVS_T",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.1,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-05-04",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-05-06",
+          "side": -1,
+          "reason": "EVEN_STOP_TOUCH",
+          "price": 100
+        }
+      ]
+    },
+    {
+      "case_id": "EVEN_SHORT_GAP",
+      "description": "Even-stop (SHORT, GAP): after reaching -10% favorable move, next day opens above entry and exits at open.",
+      "csv": "cases/EVEN_SHORT_GAP.csv",
+      "symbol": "SMK_EVS_G",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.1,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-05-12",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-05-14",
+          "side": -1,
+          "reason": "EVEN_STOP_GAP",
+          "price": 103
+        }
+      ]
+    },
+    {
+      "case_id": "STOP_LOSS_LONG_GAP",
+      "description": "Stop-loss (LONG, GAP): stop-loss is always active; gap below stop level exits at open.",
+      "csv": "cases/STOP_LOSS_LONG_GAP.csv",
+      "symbol": "SMK_SL_LG",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-07-02",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-07-03",
+          "side": 1,
+          "reason": "STOP_LOSS_GAP",
+          "price": 90
+        }
+      ]
+    },
+    {
+      "case_id": "STOP_LOSS_SHORT_GAP",
+      "description": "Stop-loss (SHORT, GAP): stop-loss is always active; gap above stop level exits at open.",
+      "csv": "cases/STOP_LOSS_SHORT_GAP.csv",
+      "symbol": "SMK_SL_SG",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-07-13",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-07-14",
+          "side": -1,
+          "reason": "STOP_LOSS_GAP",
+          "price": 110
+        }
+      ]
+    },
+    {
+      "case_id": "TS_A_LONG_GAP_EXIT",
+      "description": "TS.A (LONG, GAP): after +20% activation, next day opens below trailing stop and exits at open.",
+      "csv": "cases/TS_A_LONG_GAP_EXIT.csv",
+      "symbol": "SMK_TSA_LG",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 0.2,
+        "ts_floor_gain": 0.1,
+        "ts_trail_frac": 0.1,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-08-04",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-08-06",
+          "side": 1,
+          "reason": "TS_A_GAP",
+          "price": 115
+        }
+      ]
+    },
+    {
+      "case_id": "TS_A_SHORT_GAP_EXIT",
+      "description": "TS.A (SHORT, GAP): after -20% activation, next day opens above trailing stop and exits at open.",
+      "csv": "cases/TS_A_SHORT_GAP_EXIT.csv",
+      "symbol": "SMK_TSA_SG",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 0.2,
+        "ts_floor_gain": 0.1,
+        "ts_trail_frac": 0.1,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-08-18",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-08-20",
+          "side": -1,
+          "reason": "TS_A_GAP",
+          "price": 85
+        }
+      ]
+    },
+    {
+      "case_id": "TS_B_LONG_DEAD_EXIT",
+      "description": "TS.B scheduling (LONG): EMA5/20 dead cross schedules next-open exit (reason=TS_B_DEAD_CROSS).",
+      "csv": "cases/TS_B_LONG_DEAD_EXIT.csv",
+      "symbol": "SMK_TSB_L",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 100.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-09-02",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-09-10",
+          "side": 1,
+          "reason": "TS_B_DEAD_CROSS",
+          "price": 78
+        }
+      ],
+      "assertions": {
+        "raw_checks": [
+          {
+            "type": "EMA_DEAD_CROSS",
+            "date": "2020-09-09",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "TS_B_SHORT_GOLDEN_EXIT",
+      "description": "TS.B scheduling (SHORT): EMA5/20 golden cross schedules next-open exit (reason=TS_B_GOLDEN_CROSS).",
+      "csv": "cases/TS_B_SHORT_GOLDEN_EXIT.csv",
+      "symbol": "SMK_TSB_S",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 100.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-10-02",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-10-09",
+          "side": -1,
+          "reason": "TS_B_GOLDEN_CROSS",
+          "price": 129
+        }
+      ],
+      "assertions": {
+        "raw_checks": [
+          {
+            "type": "EMA_GOLDEN_CROSS",
+            "date": "2020-10-08",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "SHORT_EMA20_40_ENTRY_TS_B_EXIT",
+      "description": "Short rule: EMA20/40 dead cross entry (T close -> T+1 open) and TS.B EMA5/20 golden-cross exit (next open).",
+      "csv": "cases/SHORT_EMA20_40_ENTRY_TS_B_EXIT.csv",
+      "symbol": "SMK_S2040",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule_short": "SHORT_EMA20_40_DEAD",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 100.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-12-24",
+          "side": -1,
+          "reason": "ENTRY_EMA20_40_DEAD",
+          "price": 96
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2021-01-20",
+          "side": -1,
+          "reason": "TS_B_GOLDEN_CROSS",
+          "price": 98
+        }
+      ],
+      "assertions": {
+        "raw_checks": [
+          {
+            "type": "EMA20_40_DEAD_CROSS",
+            "date": "2020-12-23",
+            "expected": true
+          },
+          {
+            "type": "EMA_GOLDEN_CROSS",
+            "date": "2021-01-19",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "FILTER_CYCLE_BLOCK_SHORT",
+      "description": "Cycle filter blocks SHORT manual entry when cycle_phase disallows short (phase in {1,2,6}).",
+      "csv": "cases/FILTER_CYCLE_BLOCK_SHORT.csv",
+      "symbol": "SMK_CYC_S",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_SHORT",
+        "filter_pl": false,
+        "filter_cycle": true,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 10.0
+      },
+      "assertions": {
+        "expect_no_fills": true,
+        "raw_checks": [
+          {
+            "type": "CYCLE_ALLOWS_SHORT",
+            "date": "2021-02-15",
+            "expected": false
+          },
+          {
+            "type": "CYCLE_ALLOWS_LONG",
+            "date": "2021-02-15",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B_GOLDEN_DC20_OVERRIDE",
+      "description": "Type B: EMA5/20 golden cross then Donchian20 breakout should trigger ENTRY_B_GOLDEN_DC20_OVR (breakout strictly after cross day).",
+      "csv": "cases/B_GOLDEN_DC20_OVERRIDE.csv",
+      "symbol": "SMK_B_OVR",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule_long": "B_EMA_CROSS_DC10",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2021-03-24",
+          "side": 1,
+          "reason": "ENTRY_B_GOLDEN_DC20_OVR",
+          "price": 111
+        }
+      ],
+      "assertions": {
+        "raw_checks": [
+          {
+            "type": "EMA_GOLDEN_CROSS",
+            "date": "2021-03-22",
+            "expected": true
+          },
+          {
+            "type": "DONCHIAN20_LONG",
+            "date": "2021-03-23",
+            "expected": true
+          },
+          {
+            "type": "DONCHIAN10_LONG",
+            "date": "2021-03-23",
+            "expected": true
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "EVEN_LONG_PYRAMID_THEN_EVEN_EXIT",
+      "description": "Even-stop persists through pyramiding: once armed, after pyramid updates X, even-stop should exit at tick_down(new X).",
+      "csv": "cases/EVEN_LONG_PYRAMID_THEN_EVEN_EXIT.csv",
+      "symbol": "SMK_EV_PRM",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "PRMD.A",
+        "pyramid_trigger": 0.15,
+        "max_units_per_symbol": 4,
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.1,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 10.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-12-02",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        },
+        {
+          "fill_type": "PYRAMID",
+          "date": "2020-12-07",
+          "side": 1,
+          "reason": "PYRAMID_LONG_PRMD.A",
+          "price": 115
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-12-07",
+          "side": 1,
+          "reason": "EVEN_STOP_TOUCH",
+          "price": 104
+        }
+      ],
+      "assertions": {
+        "raw_checks": [],
+        "max_pos_units_after": 2
+      }
+    },
+    {
+      "case_id": "TICK_ROUNDING_LONG_STOPLOSS_TOUCH_10K",
+      "description": "Tick rounding (LONG): stop-loss uses tick_down; exit on TOUCH should occur at rounded tick level in sub-10k band.",
+      "csv": "cases/TICK_ROUNDING_LONG_STOPLOSS_TOUCH_10K.csv",
+      "symbol": "SMK_TICK_L",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-03-18",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 10050
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-03-19",
+          "side": 1,
+          "reason": "STOP_LOSS_TOUCH",
+          "price": 9900
+        }
+      ],
+      "assertions": {}
+    },
+    {
+      "case_id": "TICK_ROUNDING_SHORT_STOPLOSS_TOUCH_10K",
+      "description": "Tick rounding (SHORT): stop-loss uses tick_up; exit on TOUCH should occur at rounded tick level in 10k band.",
+      "csv": "cases/TICK_ROUNDING_SHORT_STOPLOSS_TOUCH_10K.csv",
+      "symbol": "SMK_TICK_S",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-03-18",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 10050
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-03-19",
+          "side": -1,
+          "reason": "STOP_LOSS_TOUCH",
+          "price": 10200
+        }
+      ],
+      "assertions": {}
+    },
+    {
+      "case_id": "ARB_PRIORITY_WINNER",
+      "description": "TraderMaster arbitration: two traders want same symbol at same time; higher priority wins, other canceled.",
+      "master_config_overrides": {
+        "max_units_total": 10,
+        "exclusive_symbol_position": true
+      },
+      "traders": [
+        {
+          "trader_id": "T_HI",
+          "symbol": "SMK_ARB",
+          "csv": "cases/ARB_PRIORITY_WINNER.csv",
+          "config_overrides": {
+            "priority": 10,
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "LONG_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "OFF",
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 10.0
+          }
+        },
+        {
+          "trader_id": "T_LO",
+          "symbol": "SMK_ARB",
+          "csv": "cases/ARB_PRIORITY_WINNER.csv",
+          "config_overrides": {
+            "priority": 1,
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "LONG_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "OFF",
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 10.0
+          }
+        }
+      ],
+      "expected_fills": [
+        {
+          "trader_id": "T_HI",
+          "fill_type": "ENTRY",
+          "date": "2021-04-02",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        }
+      ],
+      "assertions": {
+        "no_fills_matching": [
+          {
+            "trader_id": "T_LO",
+            "fill_type": "ENTRY"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "ARB_TIE_CANCEL_ALL",
+      "description": "TraderMaster arbitration: tie in priority -> cancel all pending entries (no fills).",
+      "master_config_overrides": {
+        "max_units_total": 10,
+        "exclusive_symbol_position": true
+      },
+      "traders": [
+        {
+          "trader_id": "T1",
+          "symbol": "SMK_ARB2",
+          "csv": "cases/ARB_TIE_CANCEL_ALL.csv",
+          "config_overrides": {
+            "priority": 5,
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "LONG_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "OFF",
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 10.0
+          }
+        },
+        {
+          "trader_id": "T2",
+          "symbol": "SMK_ARB2",
+          "csv": "cases/ARB_TIE_CANCEL_ALL.csv",
+          "config_overrides": {
+            "priority": 5,
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "LONG_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "OFF",
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 10.0
+          }
+        }
+      ],
+      "assertions": {
+        "expect_no_fills": true
+      }
+    },
+    {
+      "case_id": "EXCLUSIVE_SYMBOL_BLOCK_LATER",
+      "description": "Symbol exclusivity: once a trader owns a symbol, another trader cannot open it later (can_open_symbol blocks at execution).",
+      "master_config_overrides": {
+        "max_units_total": 10,
+        "exclusive_symbol_position": true
+      },
+      "traders": [
+        {
+          "trader_id": "OWNER",
+          "symbol": "SMK_EXCL",
+          "csv": "cases/EXCLUSIVE_SYMBOL_BLOCK_LATER.csv",
+          "config_overrides": {
+            "priority": 10,
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "LONG_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "OFF",
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 100.0
+          }
+        },
+        {
+          "trader_id": "CHALLENGER",
+          "symbol": "SMK_EXCL",
+          "csv": "cases/EXCLUSIVE_SYMBOL_BLOCK_LATER.csv",
+          "config_overrides": {
+            "priority": 1,
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "SHORT_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "OFF",
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 100.0
+          }
+        }
+      ],
+      "expected_fills": [
+        {
+          "trader_id": "OWNER",
+          "fill_type": "ENTRY",
+          "date": "2021-05-04",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        }
+      ],
+      "assertions": {
+        "no_fills_matching": [
+          {
+            "trader_id": "CHALLENGER",
+            "fill_type": "ENTRY"
+          },
+          {
+            "trader_id": "CHALLENGER",
+            "fill_type": "EXIT"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "MASTER_MAX_UNITS_TOTAL",
+      "description": "Portfolio unit cap: total units across traders must not exceed 10 (spec).",
+      "master_config_overrides": {
+        "max_units_total": 10,
+        "exclusive_symbol_position": true
+      },
+      "traders": [
+        {
+          "trader_id": "U1",
+          "symbol": "SMK_U1",
+          "csv": "cases/MASTER_MAX_UNITS_TOTAL.csv",
+          "config_overrides": {
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "LONG_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "PRMD.A",
+            "pyramid_trigger": 0.01,
+            "max_units_per_symbol": 4,
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 100.0
+          }
+        },
+        {
+          "trader_id": "U2",
+          "symbol": "SMK_U2",
+          "csv": "cases/MASTER_MAX_UNITS_TOTAL.csv",
+          "config_overrides": {
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "LONG_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "PRMD.A",
+            "pyramid_trigger": 0.01,
+            "max_units_per_symbol": 4,
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 100.0
+          }
+        },
+        {
+          "trader_id": "U3",
+          "symbol": "SMK_U3",
+          "csv": "cases/MASTER_MAX_UNITS_TOTAL.csv",
+          "config_overrides": {
+            "initial_capital": 100000000,
+            "one_trading_risk": 0.01,
+            "entry_rule": "MANUAL",
+            "trade_mode": "LONG_ONLY",
+            "filter_pl": false,
+            "filter_cycle": false,
+            "filter_market_cycle": false,
+            "pyramiding_type": "PRMD.A",
+            "pyramid_trigger": 0.01,
+            "max_units_per_symbol": 4,
+            "ts_type": "TS.A",
+            "ts_activate_gain": 9.99,
+            "even_stop_gain": 0.0,
+            "emergency_stop_pct": 0.0,
+            "stop_atr_mult": 100.0
+          }
+        }
+      ],
+      "assertions": {
+        "portfolio_max_units": 10,
+        "max_pos_units_after_by_trader": {
+          "U1": 4,
+          "U2": 3,
+          "U3": 3
+        }
+      }
+    },
+    {
+      "case_id": "FEE_LONG_EXIT_TOUCH",
+      "description": "Fee model (LONG): STOP_LOSS_TOUCH exit must apply sell_cost_rate to proceeds; realized_pnl and NAV should reconcile.",
+      "csv": "cases/FEE_LONG_EXIT_TOUCH.csv",
+      "symbol": "SMK_FEE_L_T",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0,
+        "sell_cost_rate": 0.003
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-10-02",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-10-05",
+          "side": 1,
+          "reason": "STOP_LOSS_TOUCH",
+          "price": 92
+        }
+      ],
+      "assertions": {
+        "trade_pnl_matches_fee_model": {
+          "tolerance": 1e-06
+        },
+        "nav_matches_realized_pnl": {
+          "tolerance": 1e-06
+        }
+      }
+    },
+    {
+      "case_id": "FEE_LONG_EXIT_GAP",
+      "description": "Fee model (LONG): STOP_LOSS_GAP exit must apply sell_cost_rate to proceeds; realized_pnl and NAV should reconcile.",
+      "csv": "cases/FEE_LONG_EXIT_GAP.csv",
+      "symbol": "SMK_FEE_L_G",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0,
+        "sell_cost_rate": 0.003
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-10-02",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-10-05",
+          "side": 1,
+          "reason": "STOP_LOSS_GAP",
+          "price": 90
+        }
+      ],
+      "assertions": {
+        "trade_pnl_matches_fee_model": {
+          "tolerance": 1e-06
+        },
+        "nav_matches_realized_pnl": {
+          "tolerance": 1e-06
+        }
+      }
+    },
+    {
+      "case_id": "FEE_SHORT_EXIT_TOUCH",
+      "description": "Fee model (SHORT): STOP_LOSS_TOUCH cover must apply sell_cost_rate on entry (short-sell) proceeds; realized_pnl and NAV should reconcile.",
+      "csv": "cases/FEE_SHORT_EXIT_TOUCH.csv",
+      "symbol": "SMK_FEE_S_T",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0,
+        "sell_cost_rate": 0.003,
+        "annual_short_interest_rate": 0.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-10-02",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-10-05",
+          "side": -1,
+          "reason": "STOP_LOSS_TOUCH",
+          "price": 108
+        }
+      ],
+      "assertions": {
+        "trade_pnl_matches_fee_model": {
+          "tolerance": 1e-06
+        },
+        "nav_matches_realized_pnl": {
+          "tolerance": 1e-06
+        }
+      }
+    },
+    {
+      "case_id": "FEE_SHORT_EXIT_GAP",
+      "description": "Fee model (SHORT): STOP_LOSS_GAP cover must apply sell_cost_rate on entry (short-sell) proceeds; realized_pnl and NAV should reconcile.",
+      "csv": "cases/FEE_SHORT_EXIT_GAP.csv",
+      "symbol": "SMK_FEE_S_G",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "SHORT_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0,
+        "sell_cost_rate": 0.003,
+        "annual_short_interest_rate": 0.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-10-02",
+          "side": -1,
+          "reason": "ENTRY_MANUAL_SHORT",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-10-05",
+          "side": -1,
+          "reason": "STOP_LOSS_GAP",
+          "price": 110
+        }
+      ],
+      "assertions": {
+        "trade_pnl_matches_fee_model": {
+          "tolerance": 1e-06
+        },
+        "nav_matches_realized_pnl": {
+          "tolerance": 1e-06
+        }
+      }
+    },
+    {
+      "case_id": "UNIT_SHARES_ZERO_NO_ORDER",
+      "description": "Sizing defense: if unit_shares computes to 0, no order/fill should be created and NAV must stay constant.",
+      "csv": "cases/UNIT_SHARES_ZERO_NO_ORDER.csv",
+      "symbol": "SMK_UNIT0",
+      "config_overrides": {
+        "initial_capital": 1000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.A",
+        "ts_activate_gain": 9.99,
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0
+      },
+      "expected_fills": [],
+      "assertions": {
+        "expect_no_fills": true,
+        "nav_is_constant": {
+          "tolerance": 1e-09
+        },
+        "pos_side_always_flat": true
+      }
+    },
+    {
+      "case_id": "SCHEDULE_EXIT_VS_GAP_STOP_PRIORITY",
+      "description": "Collision: TS.B scheduled exit exists, but next-day open gaps beyond STOP_LOSS. Expect STOP_LOSS_GAP to override scheduled reason (single exit).",
+      "csv": "cases/SCHEDULE_EXIT_VS_GAP_STOP_PRIORITY.csv",
+      "symbol": "SMK_SCHED_GAP",
+      "config_overrides": {
+        "initial_capital": 100000000,
+        "one_trading_risk": 0.01,
+        "entry_rule": "MANUAL",
+        "trade_mode": "LONG_ONLY",
+        "filter_pl": false,
+        "filter_cycle": false,
+        "filter_market_cycle": false,
+        "pyramiding_type": "OFF",
+        "ts_type": "TS.B",
+        "even_stop_gain": 0.0,
+        "emergency_stop_pct": 0.0,
+        "stop_atr_mult": 2.0
+      },
+      "expected_fills": [
+        {
+          "fill_type": "ENTRY",
+          "date": "2020-12-02",
+          "side": 1,
+          "reason": "ENTRY_MANUAL_LONG",
+          "price": 100
+        },
+        {
+          "fill_type": "EXIT",
+          "date": "2020-12-08",
+          "side": 1,
+          "reason": "STOP_LOSS_GAP",
+          "price": 65
+        }
+      ],
+      "assertions": {
+        "raw_checks": [
+          {
+            "type": "EMA_DEAD_CROSS",
+            "date": "2020-12-07",
+            "expected": true
+          }
+        ],
+        "no_duplicate_exits_per_day": true
+      }
+    }
+  ]
+}

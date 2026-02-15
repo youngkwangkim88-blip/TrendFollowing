@@ -1,0 +1,4 @@
+date,equity,cash_cma,cash_free,cash_locked,holding_value,short_liability,pos_side,pos_units,pos_shares,pos_avg_price,short_basis_price,short_notional_basis,accrued_interest,unit_capital_base
+2020-02-03,100000000.0,100000000.0,0.0,0.0,0.0,0.0,0,0,0,0.0,0.0,0.0,0.0,100000000.0
+2020-02-04,98857500.0,98857500.0,0.0,0.0,0.0,0.0,0,0,0,0.0,0.0,0.0,0.0,100000000.0
+2020-02-05,98857500.0,98857500.0,0.0,0.0,0.0,0.0,0,0,0,0.0,0.0,0.0,0.0,100000000.0

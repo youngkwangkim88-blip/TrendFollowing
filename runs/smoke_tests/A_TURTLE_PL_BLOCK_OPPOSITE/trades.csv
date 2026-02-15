@@ -1,0 +1,2 @@
+trader_id,symbol,side,entry_date,entry_price,avg_entry_price,num_entries,shares,exit_date,exit_price,realized_pnl,exit_reason
+SMOKE,SMK_PL_BLOCK,1,2020-01-31,120.0,120.0,1,335353,2020-03-05,126.0,1885354.5659999996,TS_B_DEAD_CROSS

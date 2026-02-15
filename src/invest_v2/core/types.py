@@ -38,6 +38,9 @@ class EntryRuleType(str, Enum):
     # Short patch: EMA(20/40) dead cross entry (SHORT only)
     SHORT_EMA20_40_DEAD = "SHORT_EMA20_40_DEAD"
 
+    # Smoke-test helper: manual entry signals from data column `manual_entry`
+    MANUAL = "MANUAL"
+
     # NOTE: 과거 회귀 기반 전략B는 본 세션 범위에서 폐기(deprecated)했다.
 
 

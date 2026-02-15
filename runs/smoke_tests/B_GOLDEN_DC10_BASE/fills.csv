@@ -1,0 +1,2 @@
+trader_id,symbol,side,fill_date,fill_price,fill_shares,fill_type,reason,pos_units_after,pos_shares_after,avg_price_after,shares
+SMOKE,SMK_B_BASE,1,2020-03-13,92.0,399220,ENTRY,ENTRY_B_GOLDEN_DC10,1,399220,92.0,

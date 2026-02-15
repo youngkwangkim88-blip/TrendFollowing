@@ -1,0 +1,2 @@
+trader_id,symbol,side,entry_date,entry_price,avg_entry_price,num_entries,shares,exit_date,exit_price,realized_pnl,exit_reason
+SMOKE,SMK_TS_A_TRAIL,1,2020-09-02,100.0,100.0,1,500000,2020-09-04,112.0,5832000.0,TS_A_TOUCH

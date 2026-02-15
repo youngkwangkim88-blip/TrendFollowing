@@ -1,0 +1,3 @@
+trader_id,symbol,side,fill_date,fill_price,fill_shares,fill_type,reason,pos_units_after,pos_shares_after,avg_price_after,shares
+SMOKE,SMK_SMH,-1,2020-03-03,60000.0,83,ENTRY,ENTRY_MANUAL_SHORT,1,83,60000.0,
+SMOKE,SMK_SMH,-1,2020-03-06,60000.0,83,EXIT,SHORT_MAX_HOLD_DAYS,1,83,60000.0,

@@ -1,4 +1,4 @@
-﻿{
+{
     "version":  "0.2.0",
     "configurations":  [
                            {
@@ -167,32 +167,6 @@
                                "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
                            },
                            {
-                               "name":  "AI: Pivot Point (KOSPI200 LSTM)",
-                               "type":  "debugpy",
-                               "request":  "launch",
-                               "program":  "${workspaceFolder}/scripts/AI_pivot_point.py",
-                               "cwd":  "${workspaceFolder}",
-                               "console":  "integratedTerminal",
-                               "env":  {
-                                           "PYTHONPATH":  "${workspaceFolder}/src"
-                                       },
-                               "args":  [
-                                            "--data-path",
-                                            "data/kospi200_20260212.csv",
-                                            "--label-path",
-                                            "outputs/pivotal point/kospi200_labels_expanded.csv",
-                                            "--seq-length",
-                                            "20",
-                                            "--epochs",
-                                            "50",
-                                            "--batch-size",
-                                            "64",
-                                            "--target-precision",
-                                            "0.30"
-                                        ],
-                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
-                           },
-                           {
                                "name":  "AI: Pivot Point Voting (KOSPI200)",
                                "type":  "debugpy",
                                "request":  "launch",
@@ -221,58 +195,6 @@
                                "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
                            },
                            {
-                               "name":  "AI: Pivot Point Stage2 (KOSPI200)",
-                               "type":  "debugpy",
-                               "request":  "launch",
-                               "program":  "${workspaceFolder}/scripts/AI_pivot_point_stage2.py",
-                               "cwd":  "${workspaceFolder}",
-                               "console":  "integratedTerminal",
-                               "env":  {
-                                           "PYTHONPATH":  "${workspaceFolder}/src"
-                                       },
-                               "args":  [
-                                            "--data-path",
-                                            "data/kospi200_20260212.csv",
-                                            "--label-path",
-                                            "outputs/pivotal point/kospi200_labels_expanded.csv",
-                                            "--seq-length",
-                                            "20",
-                                            "--epochs",
-                                            "50",
-                                            "--batch-size",
-                                            "64",
-                                            "--target-precision",
-                                            "0.30"
-                                        ],
-                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
-                           },
-                           {
-                               "name":  "AI: Pivot Point Stage3 (KOSPI200)",
-                               "type":  "debugpy",
-                               "request":  "launch",
-                               "program":  "${workspaceFolder}/scripts/AI_pivot_point_stage3.py",
-                               "cwd":  "${workspaceFolder}",
-                               "console":  "integratedTerminal",
-                               "env":  {
-                                           "PYTHONPATH":  "${workspaceFolder}/src"
-                                       },
-                               "args":  [
-                                            "--data-path",
-                                            "data/kospi200_20260212.csv",
-                                            "--label-path",
-                                            "outputs/pivotal point/kospi200_labels_expanded.csv",
-                                            "--seq-length",
-                                            "60",
-                                            "--epochs",
-                                            "60",
-                                            "--batch-size",
-                                            "64",
-                                            "--target-precision",
-                                            "0.30"
-                                        ],
-                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
-                           },
-                           {
                                "name":  "Backtest: Trader Master From Config",
                                "type":  "debugpy",
                                "request":  "launch",
@@ -295,10 +217,25 @@
                                "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
                            },
                            {
-                               "name":  "AI: Pivot Point Stage4 (Multi-Ticker)",
+                               "name":  "AI: Run Parallel (Stage4)",
                                "type":  "debugpy",
                                "request":  "launch",
-                               "program":  "${workspaceFolder}/scripts/AI_pivot_point_stage4.py",
+                               "program":  "${workspaceFolder}/scripts/run_parallel.py",
+                               "cwd":  "${workspaceFolder}/scripts",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src",
+                                           "PYTHONIOENCODING":  "utf-8",
+                                           "PYTHONUTF8":  "1",
+                                           "PATH":  "${workspaceFolder}\\.venv\\Scripts;${env:PATH}"
+                                       },
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "AI: Pivot Point Stage5",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_pivot_point_stage5.py",
                                "cwd":  "${workspaceFolder}",
                                "console":  "integratedTerminal",
                                "env":  {
@@ -307,8 +244,14 @@
                                "args":  [
                                             "--panel-csv",
                                             "data/krx100_adj_5000.csv",
+                                            "--index-csv",
+                                            "data/kospi200_20260212.csv",
                                             "--symbols",
-                                            "005930,000660,005380,051910,105560",
+                                            "1028,005930,000660,005380,373220,207940,402340,000270,105560,034020,329180,012450,068270,028260,055550,032830,042660,035420,012330,015760,086790,006800,267260,005490,006400,316140,009540,000810,035720,034730,010140,138040,009150,051910,298040,064350,024110,011200,267250,003670,010120,272210,042700,096770,086280,066570,017670,047810",
+                                            "--index-symbol",
+                                            "1028",
+                                            "--index-weight",
+                                            "0.7",
                                             "--seq-length",
                                             "60",
                                             "--label-order",
@@ -316,14 +259,251 @@
                                             "--label-expand",
                                             "1",
                                             "--epochs",
-                                            "20",
+                                            "150",
                                             "--batch-size",
-                                            "128",
+                                            "256",
                                             "--runs",
-                                            "3",
+                                            "5",
                                             "--target-precision",
                                             "0.30"
                                         ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "AI: Run Parallel Stage 5 (80% CPU)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/run_parallel_stage5.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src",
+                                           "PYTHONIOENCODING":  "utf-8",
+                                           "PYTHONUTF8":  "1"
+                                       },
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Universe: LongOnly Sweep (13 Tickers, 25 Workers)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/run_universe_longonly_sweep.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src",
+                                           "OMP_NUM_THREADS":  "1",
+                                           "OPENBLAS_NUM_THREADS":  "1",
+                                           "MKL_NUM_THREADS":  "1",
+                                           "VECLIB_MAXIMUM_THREADS":  "1",
+                                           "NUMEXPR_NUM_THREADS":  "1"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--experiment",
+                                            "universe_longonly_13tickers_v1",
+                                            "--workers",
+                                            "25",
+                                            "--resume",
+                                            "--write-abc-topk-per-ticker",
+                                            "3"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Universe: LongOnly Sweep (Custom Symbols)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/run_universe_longonly_sweep.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src",
+                                           "OMP_NUM_THREADS":  "1",
+                                           "OPENBLAS_NUM_THREADS":  "1",
+                                           "MKL_NUM_THREADS":  "1",
+                                           "VECLIB_MAXIMUM_THREADS":  "1",
+                                           "NUMEXPR_NUM_THREADS":  "1"
+                                       },
+                               "args":  [
+                                            "--csv",
+                                            "data/krx100_adj_5000.csv",
+                                            "--experiment",
+                                            "universe_longonly_custom_v1",
+                                            "--symbols",
+                                            "005930,005380,035420",
+                                            "--workers",
+                                            "25",
+                                            "--resume",
+                                            "--write-abc-topk-per-ticker",
+                                            "3"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Smoke: Run All",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/run_smoke_tests.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Smoke: Run Single (A_TURTLE_PL_BLOCK_OPPOSITE)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/run_smoke_tests.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "args":  [
+                                            "A_TURTLE_PL_BLOCK_OPPOSITE"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Smoke: Fast No Save",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/run_smoke_tests.py",
+                               "cwd":  "${workspaceFolder}",
+                               "console":  "integratedTerminal",
+                               "env":  {
+                                           "PYTHONPATH":  "${workspaceFolder}/src"
+                                       },
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Python: Stage8 (Train Variants Parallel)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage8_train_variants.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Python: Stage9 (Grid Search Deep_CNN)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_optimize_hyperparams.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Python: Stage9 Smoke (Single Worker Save Weights)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_optimize_hyperparams.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "args":  [
+                                            "--worker",
+                                            "--lr",
+                                            "0.0005",
+                                            "--batch_size",
+                                            "256",
+                                            "--run_id",
+                                            "1"
+                                        ],
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Python: Stage9-2 Smoke (Verify 1 Run)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_verify_10runs.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe",
+                               "args":  [
+                                            "--worker",
+                                            "--run_id",
+                                            "1"
+                                        ]
+                           },
+                           {
+                               "name":  "Python: Stage9-2 (Verify 10 Runs)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_verify_10runs.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Python: Stage9 Plot (KOSPI200 Auto)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_plot_kospi200.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe",
+                               "args":  [
+                                            "--source",
+                                            "auto"
+                                        ]
+                           },
+                           {
+                               "name":  "Python: Plot KOSPI200 Ensemble",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_plot_kospi200.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe",
+                               "args":  [
+                                            "--agreement_n",
+                                            "8"
+                                        ]
+                           },
+                           {
+                               "name":  "Python: Plot KOSPI200 Ensemble (N=10)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_plot_kospi200.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe",
+                               "args":  [
+                                            "--agreement_n",
+                                            "10"
+                                        ]
+                           },
+                           {
+                               "name":  "Python: Stage9-3 (He-Init 10 Runs)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_3_he_init_10runs.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
+                               "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
+                           },
+                           {
+                               "name":  "Python: Stage9-4 (Tune LR with He-Init)",
+                               "type":  "debugpy",
+                               "request":  "launch",
+                               "program":  "${workspaceFolder}/scripts/AI_scripts/stage9_4_tune_lr_he_init.py",
+                               "console":  "integratedTerminal",
+                               "justMyCode":  true,
+                               "cwd":  "${workspaceFolder}",
                                "python":  "${workspaceFolder}/.venv/Scripts/python.exe"
                            }
                        ]

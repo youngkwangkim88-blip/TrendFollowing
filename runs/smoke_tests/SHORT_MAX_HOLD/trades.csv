@@ -1,0 +1,2 @@
+trader_id,symbol,side,entry_date,entry_price,avg_entry_price,num_entries,shares,exit_date,exit_price,realized_pnl,exit_reason
+SMOKE,SMK_SMH,-1,2020-03-03,60000.0,60000.0,1,83,2020-03-06,60000.0,-14940.0,SHORT_MAX_HOLD_DAYS

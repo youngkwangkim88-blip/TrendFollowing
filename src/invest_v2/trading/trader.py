@@ -766,7 +766,14 @@ class Trader:
         # 1) pending exit at open
         if self.pending_exit_reason is not None and self.pos_side != Side.FLAT:
             master.ensure_trading_cash(self.trader_id)
-            self._exit_position_full(date=date, exit_price=float(o), reason=str(self.pending_exit_reason), master=master)
+
+            # Collision handling: if a price-level stop is already gapped at today's open,
+            # classify the exit as that stop (reason priority) rather than the scheduled
+            # close-based exit (TS.B / ES3). This makes reporting of severe gap events
+            # more faithful and prevents "double exit" style regressions.
+            gap_stop = self._check_stop_trigger(df=df, i=i, o=float(o), h=float(o), l=float(o))
+            reason = gap_stop["exit_reason"] if gap_stop is not None else str(self.pending_exit_reason)
+            self._exit_position_full(date=date, exit_price=float(o), reason=reason, master=master)
             self.pending_exit_reason = None
             self.pending_entry_order = None
 
